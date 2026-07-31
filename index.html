@@ -311,8 +311,6 @@
     const ID_MI_GOOGLE_SHEET = '1mj4sMYaA03wZhDej8VzNTWJ5LU-la_BECeO4ILByNXU';
     const GOOGLE_SHEETS_JSONP_URL = `https://docs.google.com/spreadsheets/d/${ID_MI_GOOGLE_SHEET}/gviz/tq?tqx=responseHandler:procesarRespuestaGoogleSheets`;
 
-    const SYNC_INTERVAL = 5 * 60 * 1000;
-
     let currentUser = null;
     let activeTickets = [];
     let rawTodasSolicitudes = [];
@@ -333,7 +331,7 @@
         document.getElementById('view-app').style.display = 'none';
       }
 
-      window.addEventListener('storage', (e) => { 
+      window.addEventListener('storage', () => { 
         if (currentUser) cargarDatosLocales(); 
       });
     });
@@ -364,11 +362,6 @@
 
       configurarInterfazPorRol();
       cargarDatosLocales();
-
-      cargarDesdeGoogleSheets(false);
-
-      if (window._syncIntervalId) clearInterval(window._syncIntervalId);
-      window._syncIntervalId = setInterval(() => cargarDesdeGoogleSheets(false), SYNC_INTERVAL);
     }
 
     function cerrarSesion() {
@@ -601,7 +594,7 @@
       });
 
       if (displayList.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 1rem; color: var(--muted);">No hay tickets cargados en pantalla. Haz clic en Sincronizar Google Sheets.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 1.5rem; color: var(--muted);">No hay tickets cargados en pantalla. Haz clic en "Sincronizar Google Sheets".</td></tr>';
         document.getElementById('page-info').innerText = "Mostrando 0 de 0";
         document.getElementById('pagination-controls').innerHTML = '';
         return;
@@ -867,7 +860,7 @@
       if (!opciones.silencioso) alert(`✅ ¡Cargado con éxito! Se importaron ${activeTickets.length} tickets activos.`);
     }
 
-    // MODIFICADO: Borra la memoria global de la pantalla para Admin Y Usuarios
+    // MODIFICADO: Elimina totalmente la memoria de los tickets cargados para todos
     function limpiarCacheTotal() {
       if (confirm('⚠️ ¿Deseas hacer un Reset Pantalla General?\nEsto borrará la vista de tickets para TODOS los usuarios (NO borra tu planilla de Google Sheets).')) {
         localStorage.removeItem('mantis_tickets_data');
@@ -876,7 +869,7 @@
         
         const statusEl = document.getElementById('sync-status');
         if (statusEl) statusEl.innerText = '🧹 Memoria general vaciada. Presiona "Sincronizar Google Sheets" para volver a cargar los datos.';
-        alert('✅ Pantalla reiniciada para todos los usuarios.');
+        alert('✅ Pantalla reseteada.');
       }
     }
 
