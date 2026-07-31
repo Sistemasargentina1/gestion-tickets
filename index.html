@@ -153,7 +153,7 @@
           <h2 id="title-tickets">📊 Solicitudes Activas en Mantis</h2>
           <div id="admin-actions-bar" style="display:none; gap:0.4rem;">
             <button class="btn-sync" onclick="cargarDesdeGoogleSheets(true)">🔄 Sincronizar Google Sheets</button>
-            <button class="btn-reset" onclick="limpiarCacheTotal()">💥 Reset Cero</button>
+            <button class="btn-reset" onclick="limpiarCacheTotal()">💥 Reset Pantalla General</button>
           </div>
         </div>
         
@@ -166,18 +166,26 @@
           </div>
           <div>
             <label>Filtrar por Estado:</label>
-            <select id="filter-estado" onchange="aplicarFiltrosYOrden()">
+            <select id="filter-estado" onchange="renderTablaPaginada()">
               <option value="todos">Todos los Estados</option>
             </select>
           </div>
           <div>
             <label>Filtrar por Prioridad:</label>
-            <select id="filter-prioridad" onchange="aplicarFiltrosYOrden()">
+            <select id="filter-prioridad" onchange="renderTablaPaginada()">
               <option value="todas">Todas las Prioridades</option>
               <option value="Sin asignar">⚠️ Sin asignar (Nuevos)</option>
               <option value="Alta">🔴 Alta</option>
               <option value="Media">🟡 Media</option>
               <option value="Baja">🟢 Baja</option>
+            </select>
+          </div>
+          <div>
+            <label>↕️ Ordenar Lista Por:</label>
+            <select id="sort-order" onchange="renderTablaPaginada()">
+              <option value="id">🆔 ID del Ticket (Por defecto)</option>
+              <option value="prioridad">🔴 Prioridad (Alta / Media / Baja)</option>
+              <option value="ranking">🔢 Ranking Puesto # (Solo Altas)</option>
             </select>
           </div>
         </div>
@@ -300,10 +308,7 @@
       'admin': { pass: 'Coppel2026', role: 'admin', name: 'Administrador' }
     };
 
-    // NUEVO ID extraído de la URL enviada
     const ID_MI_GOOGLE_SHEET = '1mj4sMYaA03wZhDej8VzNTWJ5LU-la_BECeO4ILByNXU';
-    
-    // URL JSONP Directa de Google
     const GOOGLE_SHEETS_JSONP_URL = `https://docs.google.com/spreadsheets/d/${ID_MI_GOOGLE_SHEET}/gviz/tq?tqx=responseHandler:procesarRespuestaGoogleSheets`;
 
     const SYNC_INTERVAL = 5 * 60 * 1000;
@@ -328,7 +333,9 @@
         document.getElementById('view-app').style.display = 'none';
       }
 
-      window.addEventListener('storage', () => { if (currentUser) cargarDatosLocales(false); });
+      window.addEventListener('storage', (e) => { 
+        if (currentUser) cargarDatosLocales(); 
+      });
     });
 
     function ejecutarLogin(e) {
@@ -356,7 +363,7 @@
       roleBadge.className = 'badge-role ' + (currentUser.role === 'admin' ? 'role-admin' : 'role-user');
 
       configurarInterfazPorRol();
-      cargarDatosLocales(true);
+      cargarDatosLocales();
 
       cargarDesdeGoogleSheets(false);
 
@@ -429,7 +436,7 @@
       return dateStr;
     }
 
-    function cargarDatosLocales(debeOrdenar = true) {
+    function cargarDatosLocales() {
       const rawTickets = localStorage.getItem('mantis_tickets_data');
       userPriorities = JSON.parse(localStorage.getItem('mantis_user_priorities') || '{}');
       userRankings = JSON.parse(localStorage.getItem('mantis_user_rankings') || '{}');
@@ -466,46 +473,14 @@
         });
 
         actualizarContadoresAlertas(nuevosCount, actualizadosCount);
-
-        if (debeOrdenar) {
-          ordenarListaTickets();
-        }
-
         renderTablaPaginada();
       } else {
+        activeTickets = [];
         renderTablaPaginada();
       }
 
       if (currentUser.role === 'admin') renderAdminSolicitudes();
       else renderMisSolicitudes();
-    }
-
-    function aplicarFiltrosYOrden() {
-      ordenarListaTickets();
-      renderTablaPaginada();
-    }
-
-    function ordenarListaTickets() {
-      if (currentUser.role === 'admin') {
-        activeTickets.sort((a, b) => {
-          const peso = { "Alta": 1, "Media": 2, "Baja": 3, "Sin asignar": 4 };
-          let pA = peso[a.prioridadUsuario] !== undefined ? peso[a.prioridadUsuario] : 5;
-          let pB = peso[b.prioridadUsuario] !== undefined ? peso[b.prioridadUsuario] : 5;
-          if (pA !== pB) return pA - pB;
-
-          if (a.prioridadUsuario === 'Alta' && b.prioridadUsuario === 'Alta') {
-            let rA = a.rankingAlta === 'Sin asignar' ? 99 : parseInt(a.rankingAlta);
-            let rB = b.rankingAlta === 'Sin asignar' ? 99 : parseInt(b.rankingAlta);
-            return rA - rB;
-          }
-          return a.id.localeCompare(b.id);
-        });
-      } else {
-        activeTickets.sort((a, b) => {
-          if (a.esActualizado !== b.esActualizado) return b.esActualizado ? 1 : -1;
-          return a.id.localeCompare(b.id);
-        });
-      }
     }
 
     function obtenerRankingsOcupados(ticketIdExcluido) {
@@ -538,7 +513,7 @@
         }
       }
 
-      cargarDatosLocales(false);
+      cargarDatosLocales();
     }
 
     function cambiarRanking(ticketId, nuevoRankTarget) {
@@ -548,7 +523,7 @@
         userRankings[ticketId] = nuevoRankTarget.toString();
         localStorage.setItem('mantis_user_rankings', JSON.stringify(userRankings));
       }
-      cargarDatosLocales(false);
+      cargarDatosLocales();
     }
 
     function actualizarContadoresAlertas(nuevos, actualizados) {
@@ -596,6 +571,7 @@
       const filterEst = document.getElementById('filter-estado').value;
       const filterPrio = document.getElementById('filter-prioridad').value;
       const searchId = document.getElementById('search-id').value.trim().toLowerCase();
+      const sortType = document.getElementById('sort-order').value;
 
       let filtered = activeTickets.filter(t => {
         let matchSearch = !searchId || t.id.toLowerCase().includes(searchId);
@@ -604,19 +580,39 @@
         return matchSearch && matchEst && matchPrio;
       });
 
-      if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 1rem; color: var(--muted);">No hay tickets cargados o que coincidan con la búsqueda.</td></tr>';
+      let displayList = [...filtered];
+      displayList.sort((a, b) => {
+        if (sortType === 'prioridad') {
+          const peso = { "Alta": 1, "Media": 2, "Baja": 3, "Sin asignar": 4 };
+          let pA = peso[a.prioridadUsuario] || 5;
+          let pB = peso[b.prioridadUsuario] || 5;
+          if (pA !== pB) return pA - pB;
+          return a.id.localeCompare(b.id);
+        } else if (sortType === 'ranking') {
+          if (a.prioridadUsuario === 'Alta' && b.prioridadUsuario === 'Alta') {
+            let rA = a.rankingAlta === 'Sin asignar' ? 99 : parseInt(a.rankingAlta);
+            let rB = b.rankingAlta === 'Sin asignar' ? 99 : parseInt(b.rankingAlta);
+            return rA - rB;
+          }
+          return a.id.localeCompare(b.id);
+        } else {
+          return a.id.localeCompare(b.id);
+        }
+      });
+
+      if (displayList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 1rem; color: var(--muted);">No hay tickets cargados en pantalla. Haz clic en Sincronizar Google Sheets.</td></tr>';
         document.getElementById('page-info').innerText = "Mostrando 0 de 0";
         document.getElementById('pagination-controls').innerHTML = '';
         return;
       }
 
-      const totalPages = Math.ceil(filtered.length / itemsPerPage);
+      const totalPages = Math.ceil(displayList.length / itemsPerPage);
       if (currentPage > totalPages) currentPage = totalPages;
 
       const startIndex = (currentPage - 1) * itemsPerPage;
-      const endIndex = Math.min(startIndex + itemsPerPage, filtered.length);
-      const paginatedItems = filtered.slice(startIndex, endIndex);
+      const endIndex = Math.min(startIndex + itemsPerPage, displayList.length);
+      const paginatedItems = displayList.slice(startIndex, endIndex);
 
       let totalAltaTickets = activeTickets.filter(t => t.prioridadUsuario === 'Alta').length;
       let totalEscala = Math.max(totalAltaTickets, 10);
@@ -683,7 +679,7 @@
           </tr>`;
       });
 
-      document.getElementById('page-info').innerText = `Mostrando ${startIndex + 1}-${endIndex} de ${filtered.length} solicitudes`;
+      document.getElementById('page-info').innerText = `Mostrando ${startIndex + 1}-${endIndex} de ${displayList.length} solicitudes`;
       renderPaginationControls(totalPages);
     }
 
@@ -752,7 +748,7 @@
       if (idx !== -1 && rawTodasSolicitudes[idx]) {
         rawTodasSolicitudes[idx].procesada = true;
         localStorage.setItem('solicitudes_pendientes', JSON.stringify(rawTodasSolicitudes));
-        cargarDatosLocales(false);
+        cargarDatosLocales();
       }
     }
 
@@ -793,7 +789,6 @@
       document.body.appendChild(script);
     }
 
-    // Callback llamado directamente por Google
     function procesarRespuestaGoogleSheets(jsonResponse) {
       const statusEl = document.getElementById('sync-status');
       try {
@@ -804,12 +799,10 @@
         const rows = jsonResponse.table.rows;
         const dataConvertida = [];
 
-        // Encabezados
         if (jsonResponse.table.cols) {
           dataConvertida.push(jsonResponse.table.cols.map(c => c ? (c.label || '') : ''));
         }
 
-        // Filas de datos
         rows.forEach(r => {
           const fila = r.c ? r.c.map(cell => cell ? (cell.f || cell.v || '') : '') : [];
           dataConvertida.push(fila);
@@ -870,18 +863,20 @@
       }
 
       localStorage.setItem('mantis_tickets_data', JSON.stringify(activeTickets));
-      cargarDatosLocales(true);
+      cargarDatosLocales();
       if (!opciones.silencioso) alert(`✅ ¡Cargado con éxito! Se importaron ${activeTickets.length} tickets activos.`);
     }
 
+    // MODIFICADO: Borra la memoria global de la pantalla para Admin Y Usuarios
     function limpiarCacheTotal() {
-      if (confirm('⚠️ ¿Estás seguro de que deseas BORRAR TODO DE CERO?\nEsto eliminará las prioridades guardadas y tickets.')) {
-        localStorage.clear();
+      if (confirm('⚠️ ¿Deseas hacer un Reset Pantalla General?\nEsto borrará la vista de tickets para TODOS los usuarios (NO borra tu planilla de Google Sheets).')) {
+        localStorage.removeItem('mantis_tickets_data');
         activeTickets = [];
-        rawTodasSolicitudes = [];
-        misSolicitudesPendientes = [];
-        cargarDatosLocales(true);
-        alert('✅ Memoria borrada de cero.');
+        cargarDatosLocales();
+        
+        const statusEl = document.getElementById('sync-status');
+        if (statusEl) statusEl.innerText = '🧹 Memoria general vaciada. Presiona "Sincronizar Google Sheets" para volver a cargar los datos.';
+        alert('✅ Pantalla reiniciada para todos los usuarios.');
       }
     }
 
@@ -919,7 +914,7 @@
         if (idx !== -1 && rawTodasSolicitudes[idx]) {
           rawTodasSolicitudes.splice(idx, 1);
           localStorage.setItem('solicitudes_pendientes', JSON.stringify(rawTodasSolicitudes));
-          cargarDatosLocales(false);
+          cargarDatosLocales();
         }
       }
     }
@@ -953,7 +948,7 @@
       localStorage.setItem('solicitudes_pendientes', JSON.stringify(solicitudes));
       alert('✅ ¡Solicitud enviada con éxito!');
       document.getElementById('form-nuevo').reset();
-      cargarDatosLocales(false);
+      cargarDatosLocales();
       switchTab('mis-solicitudes');
     }
 
