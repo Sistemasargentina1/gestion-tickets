@@ -152,6 +152,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom: 0.5rem;">
           <h2 id="title-tickets">📊 Solicitudes Activas en Mantis</h2>
           <div id="admin-actions-bar" style="display:none; gap:0.4rem;">
+            <button class="btn-export" onclick="descargarCSVTablaGeneral()">📥 Exportar CSV con Prioridades</button>
             <button class="btn-sync" onclick="cargarDesdeGoogleSheets(true)">🔄 Sincronizar Google Sheets</button>
             <button class="btn-reset" onclick="limpiarCacheTotal()">💥 Reset Total</button>
           </div>
@@ -311,6 +312,8 @@
     const ID_MI_GOOGLE_SHEET = '1mj4sMYaA03wZhDej8VzNTWJ5LU-la_BECeO4ILByNXU';
     const GOOGLE_SHEETS_JSONP_URL = `https://docs.google.com/spreadsheets/d/${ID_MI_GOOGLE_SHEET}/gviz/tq?tqx=responseHandler:procesarRespuestaGoogleSheets`;
 
+    const SYNC_INTERVAL = 3 * 60 * 1000;
+
     let currentUser = null;
     let activeTickets = [];
     let rawTodasSolicitudes = [];
@@ -362,6 +365,13 @@
 
       configurarInterfazPorRol();
       cargarDatosLocales();
+
+      cargarDesdeGoogleSheets(false);
+
+      if (window._syncIntervalId) clearInterval(window._syncIntervalId);
+      window._syncIntervalId = setInterval(() => {
+        cargarDesdeGoogleSheets(false);
+      }, SYNC_INTERVAL);
     }
 
     function cerrarSesion() {
@@ -597,7 +607,7 @@
       });
 
       if (displayList.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 1.5rem; color: var(--muted);">No hay tickets cargados en pantalla.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 1.5rem; color: var(--muted);">No hay tickets cargados en pantalla. Haz clic en "Sincronizar Google Sheets".</td></tr>';
         document.getElementById('page-info').innerText = "Mostrando 0 de 0";
         document.getElementById('pagination-controls').innerHTML = '';
         return;
@@ -740,11 +750,13 @@
       });
     }
 
+    // REDIRECCIONA A TOTVS/MANTIS Y MARCA COMO CREADO
     function marcarCreado(idx) {
       if (idx !== -1 && rawTodasSolicitudes[idx]) {
         rawTodasSolicitudes[idx].procesada = true;
         localStorage.setItem('solicitudes_pendientes', JSON.stringify(rawTodasSolicitudes));
         cargarDatosLocales();
+        window.open('https://mit006.totvs.ar/login_password_page.php', '_blank');
       }
     }
 
@@ -762,6 +774,25 @@
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = `nuevas_solicitudes_mantis_${new Date().toISOString().slice(0,10)}.csv`;
+      link.click();
+    }
+
+    // EXPORTAR CSV CON LA LISTA COMPLETA DE TICKETS Y SUS PRIORIDADES
+    function descargarCSVTablaGeneral() {
+      if (!activeTickets.length) return alert('No hay tickets cargados para exportar.');
+
+      let csv = "\uFEFFID;Prioridad_Usuario;Ranking_Urgencia;Estado;Resumen;Informador;Asignado;Fecha_Envio;Actualizada;Link\n";
+      activeTickets.forEach(t => {
+        let prio = t.prioridadUsuario || 'Sin asignar';
+        let rank = t.rankingAlta || '-';
+        let res = t.resumen.replace(/"/g, '""');
+        csv += `"${t.id}";"${prio}";"${rank}";"${t.estado}";"${res}";"${t.informador}";"${t.asignada}";"${t.fechaEnvio}";"${t.actualizada}";"${t.link}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `mantis_tickets_priorizados_${new Date().toISOString().slice(0,10)}.csv`;
       link.click();
     }
 
@@ -863,9 +894,8 @@
       if (!opciones.silencioso) alert(`✅ ¡Cargado con éxito! Se importaron ${activeTickets.length} tickets activos.`);
     }
 
-    // AHORA LIMPIA ABSOLUTAMENTE TODO (Tickets, Prioridades y Rankings)
     function limpiarCacheTotal() {
-      if (confirm('⚠️ ¿Deseas hacer un RESET TOTAL?\nEsto BORRARÁ de la pantalla los tickets cargados y TODAS las prioridades/rankings definidos para Admin y Usuario (NO borra tu planilla de Google Sheets).')) {
+      if (confirm('⚠️ ¿Deseas RESETEAR los filtros locales y prioridades?\nEsto borrará la copia local y las prioridades definidas en este navegador (NO modifica tu planilla de Google Sheets).')) {
         localStorage.removeItem('mantis_tickets_data');
         localStorage.removeItem('mantis_user_priorities');
         localStorage.removeItem('mantis_user_rankings');
@@ -877,8 +907,8 @@
         cargarDatosLocales();
         
         const statusEl = document.getElementById('sync-status');
-        if (statusEl) statusEl.innerText = '💥 Se eliminó la memoria de tickets y prioridades. Presiona "Sincronizar Google Sheets" para comenzar de cero.';
-        alert('✅ Reset completo aplicado. Todo quedó limpio desde cero.');
+        if (statusEl) statusEl.innerText = '💥 Memoria local reseteada. Presiona "Sincronizar Google Sheets" para volver a cargar datos frescos.';
+        alert('✅ Reset completo aplicado.');
       }
     }
 
