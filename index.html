@@ -530,7 +530,6 @@
           t.prioridadUsuario = (pVal === '' || pVal === '-') ? 'Sin asignar' : pVal;
           t.rankingAlta = userRankings[t.id] || t.rankingSheet || 'Sin asignar';
           
-          // ES NUEVO SI NO TIENE PRIORIDAD O SI ES ALTA PERO AÚN NO SE LE ASIGNÓ EL RANKING #
           t.esNuevo = (t.prioridadUsuario === 'Sin asignar') || (t.prioridadUsuario === 'Alta' && t.rankingAlta === 'Sin asignar');
 
           let fechaActIso = formatearFechaAISO(t.actualizada);
@@ -561,7 +560,6 @@
       return ocupados;
     }
 
-    // CAMBIAR PRIORIDAD MANTIENE EL TICKET EN PANTALLA HASTA QUE SE ELIJA EL RANKING
     function cambiarPrioridad(ticketId, nuevaPrioridad) {
       userPriorities[ticketId] = nuevaPrioridad;
 
@@ -577,7 +575,6 @@
         } else {
           t.rankingAlta = 'Sin asignar';
           delete userRankings[ticketId];
-          // SIMPLEMENTE DIBUJA EL SELECTOR DE RANKING SIN REORDENAR LA LISTA NI MOVER EL TICKET
           renderTablaPaginada();
         }
       }
@@ -671,14 +668,24 @@
       let displayList = [...filtered];
       displayList.sort((a, b) => {
         if (sortType === 'inteligente') {
+          // BLOQUE 1: NUEVOS, AVANCES Y PENDIENTES DE RANKING
           let pesoA = (a.esNuevo || a.esActualizado) ? 1 : 2;
           let pesoB = (b.esNuevo || b.esActualizado) ? 1 : 2;
           if (pesoA !== pesoB) return pesoA - pesoB;
 
+          // BLOQUE 2: ORDEN POR PRIORIDAD (ALTA, MEDIA, BAJA)
           const pesoPrio = { "Alta": 1, "Media": 2, "Baja": 3, "Sin asignar": 4 };
           let pA = pesoPrio[a.prioridadUsuario] || 5;
           let pB = pesoPrio[b.prioridadUsuario] || 5;
           if (pA !== pB) return pA - pB;
+
+          // BLOQUE 3: SI AMBOS SON ALTA, SE ORDENAN POR SU NÚMERO DE RANKING #1, #2, #3...
+          if (a.prioridadUsuario === 'Alta' && b.prioridadUsuario === 'Alta') {
+            let rA = a.rankingAlta === 'Sin asignar' ? 99 : parseInt(a.rankingAlta);
+            let rB = b.rankingAlta === 'Sin asignar' ? 99 : parseInt(b.rankingAlta);
+            if (rA !== rB) return rA - rB;
+          }
+
           return a.id.localeCompare(b.id);
         } else if (sortType === 'fecha_asc') {
           let fA = formatearFechaAISO(a.fechaEnvio);
@@ -693,6 +700,13 @@
           let pA = peso[a.prioridadUsuario] || 5;
           let pB = peso[b.prioridadUsuario] || 5;
           if (pA !== pB) return pA - pB;
+
+          if (a.prioridadUsuario === 'Alta' && b.prioridadUsuario === 'Alta') {
+            let rA = a.rankingAlta === 'Sin asignar' ? 99 : parseInt(a.rankingAlta);
+            let rB = b.rankingAlta === 'Sin asignar' ? 99 : parseInt(b.rankingAlta);
+            if (rA !== rB) return rA - rB;
+          }
+
           return a.id.localeCompare(b.id);
         } else if (sortType === 'ranking') {
           if (a.prioridadUsuario === 'Alta' && b.prioridadUsuario === 'Alta') {
