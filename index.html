@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal Unificado de Solicitudes Mantis</title>
+  <style>
+    :root {
+      --primary: #2563eb; --bg: #f8fafc; --card: #ffffff;
+      --text: #0f172a; --muted: #64748b; --border: #e2e8f0; --danger: #ef4444; --success: #10b981; --updated: #0284c7;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 1rem; }
+    .container { width: 100%; max-width: 100%; margin: 0 auto; }
+    
+    /* VISTA LOGIN */
+    .login-wrapper { display: flex; justify-content: center; align-items: center; min-height: 80vh; }
+    .login-card { background: white; padding: 2.5rem; border-radius: 1rem; border: 1px solid var(--border); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); width: 100%; max-width: 400px; text-align: center; }
+    .login-card h2 { margin-bottom: 0.5rem; color: var(--text); }
+    .login-card p { color: var(--muted); font-size: 0.85rem; margin-bottom: 1.5rem; }
+    .form-group-login { margin-bottom: 1.25rem; text-align: left; }
+    .form-group-login label { font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.4rem; }
+    .form-group-login input { width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; outline: none; font-size: 0.95rem; }
+    .btn-login { background: var(--primary); color: white; border: none; padding: 0.85rem; border-radius: 0.5rem; font-weight: bold; width: 100%; cursor: pointer; font-size: 1rem; }
+    .btn-login:hover { background: #1d4ed8; }
+    .login-error { color: var(--danger); font-size: 0.8rem; font-weight: bold; margin-top: 1rem; display: none; }
+
+    /* CABECERA CON ROL */
+    .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; background: white; padding: 0.75rem 1.25rem; border-radius: 0.75rem; border: 1px solid var(--border); }
+    .user-info { display: flex; align-items: center; gap: 0.75rem; }
+    .badge-role { padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: bold; font-size: 0.75rem; }
+    .role-admin { background: #fee2e2; color: #991b1b; }
+    .role-user { background: #dbeafe; color: #1e40af; }
+    .btn-logout { background: #f1f5f9; color: var(--text); border: 1px solid var(--border); padding: 0.4rem 0.8rem; border-radius: 0.375rem; font-weight: bold; font-size: 0.8rem; cursor: pointer; }
+    .btn-logout:hover { background: #e2e8f0; }
+
+    /* NAVEGACION Y PESTAÑAS */
+    .nav-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; flex-wrap: wrap; }
+    .nav-tabs button { background: white; border: 1px solid var(--border); padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; font-weight: bold; position: relative; font-size: 0.85rem; }
+    .nav-tabs button.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+    .badge-alert {
+      background: var(--danger); color: white; border-radius: 999px;
+      padding: 0.15rem 0.4rem; font-size: 0.7rem; font-weight: bold;
+      margin-left: 0.4rem; animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+    .card { background: var(--card); border-radius: 0.75rem; padding: 1.25rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid var(--border); margin-bottom: 1rem; }
+    
+    .filters-bar { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; background: #f1f5f9; padding: 0.75rem; border-radius: 0.5rem; align-items: center; }
+    .filters-bar label { font-size: 0.8rem; font-weight: bold; }
+    .filters-bar select, .filters-bar input[type="text"] { padding: 0.3rem 0.5rem; border-radius: 0.375rem; border: 1px solid var(--border); font-size: 0.8rem; }
+
+    .form-group { margin-bottom: 1rem; }
+    .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; }
+    label { display: block; font-weight: 600; margin-bottom: 0.3rem; font-size: 0.85rem; }
+    input, select, textarea { width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 0.5rem; font-size: 0.9rem; outline: none; }
+    textarea { resize: vertical; min-height: 80px; }
+    .btn-submit { background: var(--primary); color: white; border: none; padding: 0.75rem 1.25rem; border-radius: 0.5rem; font-weight: bold; font-size: 0.9rem; cursor: pointer; width: 100%; }
+    
+    /* BOTONES ACCION ADMIN */
+    .btn-reset { background: var(--danger); color: white; border: none; padding: 0.5rem 0.8rem; border-radius: 0.5rem; cursor: pointer; font-weight: bold; font-size: 0.8rem; }
+    .btn-export { background: #0284c7; color: white; border: none; padding: 0.5rem 0.8rem; border-radius: 0.5rem; cursor: pointer; font-weight: bold; font-size: 0.8rem; }
+    .btn-sync { background: #7c3aed; color: white; border: none; padding: 0.5rem 0.8rem; border-radius: 0.5rem; cursor: pointer; font-weight: bold; font-size: 0.8rem; }
+
+    .table-container { width: 100%; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.8rem; }
+    th, td { padding: 0.5rem 0.4rem; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f1f5f9; color: var(--muted); white-space: nowrap; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+    
+    .badge-id { font-family: monospace; font-weight: bold; color: var(--primary); white-space: nowrap; font-size: 0.8rem; }
+    .status-badge { background: #e2e8f0; color: #0f172a; padding: 0.15rem 0.4rem; border-radius: 0.25rem; font-weight: bold; font-size: 0.7rem; display: inline-block; white-space: nowrap; }
+    .status-pending { background: #fef3c7; color: #92400e; padding: 0.15rem 0.4rem; border-radius: 0.25rem; font-weight: bold; font-size: 0.7rem; display: inline-block; white-space: nowrap; }
+    
+    .badge-prio { padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-weight: bold; font-size: 0.75rem; display: inline-block; white-space: nowrap; }
+    .badge-Alta { background: #ef4444; color: white; }
+    .badge-Media { background: #f59e0b; color: white; }
+    .badge-Baja { background: #10b981; color: white; }
+
+    .new-ticket-badge { background: #ef4444; color: white; padding: 0.1rem 0.3rem; border-radius: 0.2rem; font-size: 0.65rem; font-weight: bold; margin-left: 0.2rem; display: inline-block; }
+    .updated-ticket-badge { background: #0284c7; color: white; padding: 0.1rem 0.3rem; border-radius: 0.2rem; font-size: 0.65rem; font-weight: bold; margin-left: 0.2rem; display: inline-block; }
+    
+    .bell-icon { display: inline-block; font-size: 0.9rem; margin-left: 0.2rem; animation: ring 1.5s infinite; cursor: pointer; }
+    @keyframes ring { 0% { transform: rotate(0); } 10% { transform: rotate(15deg); } 20% { transform: rotate(-10deg); } 30% { transform: rotate(15deg); } 40% { transform: rotate(-5deg); } 50% { transform: rotate(0); } 100% { transform: rotate(0); } }
+
+    .prio-container { display: flex; gap: 0.25rem; align-items: center; white-space: nowrap; }
+    select.prioridad-select { padding: 0.25rem 0.3rem; border-radius: 0.375rem; font-weight: bold; font-size: 0.75rem; border: 1px solid var(--border); background: white; max-width: 95px; }
+    select.rank-select { padding: 0.25rem 0.2rem; border-radius: 0.375rem; font-weight: bold; font-size: 0.75rem; border: 1px solid var(--border); background: white; min-width: 60px; }
+
+    select.rank-pending {
+      border: 2px solid #ef4444 !important;
+      background-color: #fff5f5 !important;
+      color: #b91c1c !important;
+      animation: pulse 1.5s infinite;
+    }
+
+    .desc-box { max-width: 220px; max-height: 80px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; font-size: 0.75rem; color: #334155; background: #f8fafc; padding: 0.3rem 0.4rem; border-radius: 0.375rem; border: 1px solid #e2e8f0; }
+    .btn-link-mantis { background: #0284c7; color: white; padding: 0.25rem 0.4rem; border-radius: 0.25rem; font-size: 0.7rem; font-weight: bold; text-decoration: none; display: inline-block; white-space: nowrap; }
+    
+    .btn-delete { background: #ef4444; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.7rem; font-weight: bold; cursor: pointer; }
+    .btn-action-created { background: #2563eb; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: bold; cursor: pointer; }
+
+    .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; }
+    .pagination-buttons { display: flex; gap: 0.2rem; }
+    .pagination-buttons button { padding: 0.3rem 0.6rem; border: 1px solid var(--border); background: white; border-radius: 0.375rem; cursor: pointer; font-weight: 600; font-size: 0.75rem; }
+    .pagination-buttons button.active { background: var(--primary); color: white; border-color: var(--primary); }
+    
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .sync-status { font-size: 0.75rem; color: var(--muted); margin-top: 0.3rem; font-weight: 500; }
+  </style>
+</head>
+<body>
+
+  <!-- PANTALLA 1: LOGIN -->
+  <div id="view-login" class="login-wrapper">
+    <div class="login-card">
+      <h2>🔐 Portal Mantis</h2>
+      <p>Ingresa tus credenciales para acceder</p>
+      <form onsubmit="ejecutarLogin(event)">
+        <div class="form-group-login">
+          <label>Usuario</label>
+          <input type="text" id="login-user">
+        </div>
+        <div class="form-group-login">
+          <label>Contraseña</label>
+          <input type="password" id="login-pass">
+        </div>
+        <button type="submit" class="btn-login">Ingresar al Portal</button>
+        <div id="login-error" class="login-error">⚠️ Usuario o contraseña incorrectos</div>
+      </form>
+    </div>
+  </div>
+
+  <!-- PANTALLA 2: APLICACION PRINCIPAL -->
+  <div id="view-app" class="container" style="display: none;">
+    <div class="app-header">
+      <div class="user-info">
+        <span style="font-weight: bold; font-size: 0.9rem;" id="header-user-name">Juan Domnicz</span>
+        <span id="header-user-role" class="badge-role">Rol</span>
+      </div>
+      <button class="btn-logout" onclick="cerrarSesion()">🚪 Cerrar Sesión</button>
+    </div>
+
+    <div class="nav-tabs" id="nav-tabs-bar"></div>
+
+    <!-- VISTA PRINCIPAL DE TICKETS -->
+    <div id="tab-tickets" class="tab-content active">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom: 0.5rem;">
+          <h2 id="title-tickets">📊 Solicitudes Activas en Mantis</h2>
+          <div id="admin-actions-bar" style="display:none; gap:0.4rem;">
+            <button class="btn-sync" onclick="cargarDesdeGoogleSheets(true)">🔄 Sincronizar Google Sheets</button>
+            <button class="btn-reset" onclick="limpiarCacheTotal()">💥 Reset Cero</button>
+          </div>
+        </div>
+        
+        <div id="sync-status" class="sync-status"></div>
+
+        <div class="filters-bar" style="margin-top: 0.5rem;">
+          <div>
+            <label>🔍 Buscar por ID:</label>
+            <input type="text" id="search-id" placeholder="Ej. 57310..." oninput="renderTablaPaginada()" style="width: 110px;">
+          </div>
+          <div>
+            <label>Filtrar por Estado:</label>
+            <select id="filter-estado" onchange="aplicarFiltrosYOrden()">
+              <option value="todos">Todos los Estados</option>
+            </select>
+          </div>
+          <div>
+            <label>Filtrar por Prioridad:</label>
+            <select id="filter-prioridad" onchange="aplicarFiltrosYOrden()">
+              <option value="todas">Todas las Prioridades</option>
+              <option value="Sin asignar">⚠️ Sin asignar (Nuevos)</option>
+              <option value="Alta">🔴 Alta</option>
+              <option value="Media">🟡 Media</option>
+              <option value="Baja">🟢 Baja</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr id="table-header-row"></tr>
+            </thead>
+            <tbody id="tabla-mantis-body"></tbody>
+          </table>
+        </div>
+
+        <div class="pagination">
+          <span id="page-info" style="font-size: 0.75rem; color: var(--muted);">Mostrando 0 de 0</span>
+          <div class="pagination-buttons" id="pagination-controls"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PESTAÑA: SOLICITUDES ENVIADAS POR USUARIO (SOLO ADMIN) -->
+    <div id="tab-admin-solicitudes" class="tab-content">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom: 0.5rem;">
+          <h2>📥 Solicitudes Enviadas por Usuarios</h2>
+          <button class="btn-export" onclick="descargarCSVNuevas()">📥 Exportar Solicitudes a CSV</button>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Estado</th>
+                <th>Prioridad Propuesta</th>
+                <th>Fecha Envío</th>
+                <th>Título</th>
+                <th>Persona Solicitante</th>
+                <th>Área</th>
+                <th>Descripción</th>
+                <th>Adjunto</th>
+                <th>Gestión</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-admin-solicitudes-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PESTAÑA: CREAR NUEVA SOLICITUD (SOLO USUARIO) -->
+    <div id="tab-nuevo" class="tab-content">
+      <div class="card">
+        <h2>📝 Crear Nueva Solicitud</h2>
+        <p style="color: var(--muted); font-size: 0.8rem; margin-bottom: 1rem;">Esta solicitud notificará al Administrador de inmediato.</p>
+        <form id="form-nuevo" onsubmit="guardarNuevaSolicitud(event)">
+          <div class="form-group">
+            <label for="titulo">Título / Resumen del Problema *</label>
+            <input type="text" id="titulo" required placeholder="Ej. Error en la emisión de facturas electrónicas">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="informador">Persona que lo solicita *</label>
+              <input type="text" id="informador" required placeholder="Ej. Juan Domnicz">
+            </div>
+            <div class="form-group">
+              <label for="area">Área que lo solicita *</label>
+              <input type="text" id="area" required placeholder="Ej. Tesorería / Administración">
+            </div>
+            <div class="form-group">
+              <label for="prioridad">Prioridad propuesta *</label>
+              <select id="prioridad" required>
+                <option value="Alta">🔴 Alta</option>
+                <option value="Media" selected>🟡 Media</option>
+                <option value="Baja">🟢 Baja</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="descripcion">Descripción de lo que se necesita *</label>
+            <textarea id="descripcion" required placeholder="Explica detalladamente la falla o requerimiento..."></textarea>
+          </div>
+          <div class="form-group">
+            <label for="adjunto">Adjuntar Evidencia (Opcional)</label>
+            <input type="file" id="adjunto" accept="image/*, .pdf, .csv">
+          </div>
+          <button type="submit" class="btn-submit">📤 Enviar Solicitud al Administrador</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- PESTAÑA: MIS SOLICITUDES RECIENTES (SOLO USUARIO) -->
+    <div id="tab-mis-solicitudes" class="tab-content">
+      <div class="card">
+        <h2>📋 Mis Solicitudes Recientes Pendientes</h2>
+        <p style="color: var(--muted); font-size: 0.8rem; margin-bottom: 0.75rem;">Muestra las solicitudes enviadas aún no procesadas por el Administrador.</p>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Estado</th>
+                <th>Fecha de Envío</th>
+                <th>Título / Resumen</th>
+                <th>Solicitante</th>
+                <th>Área</th>
+                <th>Prioridad Propuesta</th>
+                <th>Descripción</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-mis-solicitudes-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const USUARIOS = {
+      'jdomnicz': { pass: 'Coppel2026', role: 'user', name: 'Juan Domnicz' },
+      'admin': { pass: 'Coppel2026', role: 'admin', name: 'Administrador' }
+    };
+
+    // NUEVO ID extraído de la URL enviada
+    const ID_MI_GOOGLE_SHEET = '1mj4sMYaA03wZhDej8VzNTWJ5LU-la_BECeO4ILByNXU';
+    
+    // URL JSONP Directa de Google
+    const GOOGLE_SHEETS_JSONP_URL = `https://docs.google.com/spreadsheets/d/${ID_MI_GOOGLE_SHEET}/gviz/tq?tqx=responseHandler:procesarRespuestaGoogleSheets`;
+
+    const SYNC_INTERVAL = 5 * 60 * 1000;
+
+    let currentUser = null;
+    let activeTickets = [];
+    let rawTodasSolicitudes = [];
+    let misSolicitudesPendientes = [];
+    let userPriorities = {};
+    let userRankings = {};
+    let currentPage = 1;
+    const itemsPerPage = 10;
+
+    let lastUserViewTime = localStorage.getItem('last_user_view_time') || new Date(0).toISOString().split('T')[0];
+
+    document.addEventListener('DOMContentLoaded', () => {
+      let savedUser = localStorage.getItem('session_user');
+      if (savedUser && USUARIOS[savedUser]) {
+        iniciarSesion(savedUser);
+      } else {
+        document.getElementById('view-login').style.display = 'flex';
+        document.getElementById('view-app').style.display = 'none';
+      }
+
+      window.addEventListener('storage', () => { if (currentUser) cargarDatosLocales(false); });
+    });
+
+    function ejecutarLogin(e) {
+      e.preventDefault();
+      let u = document.getElementById('login-user').value.trim();
+      let p = document.getElementById('login-pass').value.trim();
+
+      if (USUARIOS[u] && USUARIOS[u].pass === p) {
+        document.getElementById('login-error').style.display = 'none';
+        localStorage.setItem('session_user', u);
+        iniciarSesion(u);
+      } else {
+        document.getElementById('login-error').style.display = 'block';
+      }
+    }
+
+    function iniciarSesion(username) {
+      currentUser = USUARIOS[username];
+      document.getElementById('view-login').style.display = 'none';
+      document.getElementById('view-app').style.display = 'block';
+
+      document.getElementById('header-user-name').innerText = currentUser.name;
+      const roleBadge = document.getElementById('header-user-role');
+      roleBadge.innerText = currentUser.role === 'admin' ? '👑 ADMIN' : '👤 USUARIO';
+      roleBadge.className = 'badge-role ' + (currentUser.role === 'admin' ? 'role-admin' : 'role-user');
+
+      configurarInterfazPorRol();
+      cargarDatosLocales(true);
+
+      cargarDesdeGoogleSheets(false);
+
+      if (window._syncIntervalId) clearInterval(window._syncIntervalId);
+      window._syncIntervalId = setInterval(() => cargarDesdeGoogleSheets(false), SYNC_INTERVAL);
+    }
+
+    function cerrarSesion() {
+      localStorage.removeItem('session_user');
+      location.reload();
+    }
+
+    function configurarInterfazPorRol() {
+      const tabsBar = document.getElementById('nav-tabs-bar');
+      tabsBar.innerHTML = '';
+
+      if (currentUser.role === 'admin') {
+        tabsBar.innerHTML = `
+          <button id="btn-tab-tickets" class="active" onclick="switchTab('tickets')">🛠️ Cargar Mantis</button>
+          <button id="btn-tab-admin-solicitudes" onclick="switchTab('admin-solicitudes')">
+            📥 Solicitudes de Usuarios
+            <span id="alert-counter" class="badge-alert" style="display:none;">0 NUEVAS</span>
+          </button>`;
+        document.getElementById('admin-actions-bar').style.display = 'flex';
+        document.getElementById('title-tickets').innerText = '👑 Panel Administrador - Actualizar Mantis';
+      } else {
+        tabsBar.innerHTML = `
+          <button id="btn-tab-tickets" class="active" onclick="switchTab('tickets')">
+            📊 Solicitudes Activas en Mantis
+            <span id="user-alert-counter" class="badge-alert" style="display:none;"></span>
+          </button>
+          <button id="btn-tab-nuevo" onclick="switchTab('nuevo')">📝 Enviar Nueva Solicitud</button>
+          <button id="btn-tab-mis-solicitudes" onclick="switchTab('mis-solicitudes')">📋 Mis Solicitudes Recientes</button>`;
+        document.getElementById('admin-actions-bar').style.display = 'none';
+        document.getElementById('title-tickets').innerText = '📊 Solicitudes Activas en Mantis';
+      }
+
+      switchTab('tickets');
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+      document.querySelectorAll('.nav-tabs button').forEach(b => b.classList.remove('active'));
+      
+      let tabEl = document.getElementById(`tab-${tab}`);
+      let btnEl = document.getElementById(`btn-tab-${tab}`);
+      if (tabEl) tabEl.style.display = 'block';
+      if (btnEl) btnEl.classList.add('active');
+
+      if (tab === 'tickets' && currentUser.role === 'user') {
+        actualizarHoraVistaUsuario();
+      } else if (tab === 'mis-solicitudes') {
+        renderMisSolicitudes();
+      }
+    }
+
+    function actualizarHoraVistaUsuario() {
+      const hoy = new Date().toISOString().split('T')[0];
+      lastUserViewTime = hoy;
+      localStorage.setItem('last_user_view_time', hoy);
+    }
+
+    function formatearFechaAISO(dateStr) {
+      if (!dateStr || dateStr === '-') return '1970-01-01';
+      let parts = dateStr.trim().split(/[\s\/-]+/);
+      if (parts.length >= 3) {
+        if (parts[0].length === 4) return `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+        return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+      }
+      return dateStr;
+    }
+
+    function cargarDatosLocales(debeOrdenar = true) {
+      const rawTickets = localStorage.getItem('mantis_tickets_data');
+      userPriorities = JSON.parse(localStorage.getItem('mantis_user_priorities') || '{}');
+      userRankings = JSON.parse(localStorage.getItem('mantis_user_rankings') || '{}');
+      
+      rawTodasSolicitudes = JSON.parse(localStorage.getItem('solicitudes_pendientes') || '[]');
+      misSolicitudesPendientes = rawTodasSolicitudes.filter(s => !s.procesada);
+
+      if (rawTickets) {
+        let raw = JSON.parse(rawTickets);
+        activeTickets = raw.filter(t => {
+          let st = (t.estado || '').toLowerCase().trim();
+          return st !== 'cerrado' && st !== 'resuelto';
+        });
+
+        const estados = [...new Set(activeTickets.map(t => t.estado))];
+        const selectEstado = document.getElementById('filter-estado');
+        selectEstado.innerHTML = '<option value="todos">Todos los Estados</option>';
+        estados.forEach(e => { selectEstado.innerHTML += `<option value="${e}">${e}</option>`; });
+
+        let nuevosCount = 0;
+        let actualizadosCount = 0;
+        let userViewDay = lastUserViewTime;
+
+        activeTickets.forEach(t => {
+          t.prioridadUsuario = userPriorities[t.id] || 'Sin asignar';
+          t.rankingAlta = userRankings[t.id] || 'Sin asignar';
+          t.esNuevo = !userPriorities[t.id];
+
+          let fechaActIso = formatearFechaAISO(t.actualizada);
+          t.esActualizado = !t.esNuevo && (fechaActIso >= userViewDay);
+
+          if (t.esNuevo) nuevosCount++;
+          if (t.esActualizado) actualizadosCount++;
+        });
+
+        actualizarContadoresAlertas(nuevosCount, actualizadosCount);
+
+        if (debeOrdenar) {
+          ordenarListaTickets();
+        }
+
+        renderTablaPaginada();
+      } else {
+        renderTablaPaginada();
+      }
+
+      if (currentUser.role === 'admin') renderAdminSolicitudes();
+      else renderMisSolicitudes();
+    }
+
+    function aplicarFiltrosYOrden() {
+      ordenarListaTickets();
+      renderTablaPaginada();
+    }
+
+    function ordenarListaTickets() {
+      if (currentUser.role === 'admin') {
+        activeTickets.sort((a, b) => {
+          const peso = { "Alta": 1, "Media": 2, "Baja": 3, "Sin asignar": 4 };
+          let pA = peso[a.prioridadUsuario] !== undefined ? peso[a.prioridadUsuario] : 5;
+          let pB = peso[b.prioridadUsuario] !== undefined ? peso[b.prioridadUsuario] : 5;
+          if (pA !== pB) return pA - pB;
+
+          if (a.prioridadUsuario === 'Alta' && b.prioridadUsuario === 'Alta') {
+            let rA = a.rankingAlta === 'Sin asignar' ? 99 : parseInt(a.rankingAlta);
+            let rB = b.rankingAlta === 'Sin asignar' ? 99 : parseInt(b.rankingAlta);
+            return rA - rB;
+          }
+          return a.id.localeCompare(b.id);
+        });
+      } else {
+        activeTickets.sort((a, b) => {
+          if (a.esActualizado !== b.esActualizado) return b.esActualizado ? 1 : -1;
+          return a.id.localeCompare(b.id);
+        });
+      }
+    }
+
+    function obtenerRankingsOcupados(ticketIdExcluido) {
+      let ocupados = new Set();
+      activeTickets.forEach(t => {
+        if (t.id !== ticketIdExcluido && t.prioridadUsuario === 'Alta' && t.rankingAlta !== 'Sin asignar') {
+          ocupados.add(t.rankingAlta.toString());
+        }
+      });
+      return ocupados;
+    }
+
+    function cambiarPrioridad(ticketId, nuevaPrioridad) {
+      userPriorities[ticketId] = nuevaPrioridad;
+      localStorage.setItem('mantis_user_priorities', JSON.stringify(userPriorities));
+
+      let t = activeTickets.find(item => item.id === ticketId);
+      if (t) {
+        t.prioridadUsuario = nuevaPrioridad;
+        t.esNuevo = false;
+
+        if (nuevaPrioridad !== 'Alta') {
+          t.rankingAlta = 'Sin asignar';
+          delete userRankings[ticketId];
+          localStorage.setItem('mantis_user_rankings', JSON.stringify(userRankings));
+        } else {
+          t.rankingAlta = 'Sin asignar';
+          delete userRankings[ticketId];
+          localStorage.setItem('mantis_user_rankings', JSON.stringify(userRankings));
+        }
+      }
+
+      cargarDatosLocales(false);
+    }
+
+    function cambiarRanking(ticketId, nuevoRankTarget) {
+      let t = activeTickets.find(item => item.id === ticketId);
+      if (t) {
+        t.rankingAlta = nuevoRankTarget.toString();
+        userRankings[ticketId] = nuevoRankTarget.toString();
+        localStorage.setItem('mantis_user_rankings', JSON.stringify(userRankings));
+      }
+      cargarDatosLocales(false);
+    }
+
+    function actualizarContadoresAlertas(nuevos, actualizados) {
+      if (currentUser.role === 'admin') {
+        const noLeidas = misSolicitudesPendientes.length;
+        const counterEl = document.getElementById('alert-counter');
+        if (counterEl) {
+          if (noLeidas > 0) {
+            counterEl.innerText = `${noLeidas} NUEVA${noLeidas > 1 ? 'S' : ''}`;
+            counterEl.style.display = 'inline-block';
+          } else counterEl.style.display = 'none';
+        }
+      } else {
+        const counterEl = document.getElementById('user-alert-counter');
+        if (counterEl) {
+          let msgs = [];
+          if (actualizados > 0) msgs.push(`🔔 ${actualizados} CON AVANCES`);
+          if (nuevos > 0) msgs.push(`🔴 ${nuevos} NUEVO${nuevos > 1 ? 'S' : ''}`);
+
+          if (msgs.length > 0) {
+            counterEl.innerText = msgs.join(' | ');
+            counterEl.style.display = 'inline-block';
+          } else counterEl.style.display = 'none';
+        }
+      }
+    }
+
+    function renderTablaPaginada() {
+      const headerRow = document.getElementById('table-header-row');
+      headerRow.innerHTML = `
+        <th style="width:145px;">${currentUser.role === 'admin' ? 'Urgencia Usuario' : 'Prioridad / Urgencia'}</th>
+        <th>Id.</th>
+        <th>Estado</th>
+        <th>Resumen</th>
+        <th>Descripción</th>
+        <th>Informador</th>
+        <th>Asignada a</th>
+        <th>Enviado</th>
+        <th>Actualizada</th>
+        <th>Link Mantis</th>`;
+
+      const tbody = document.getElementById('tabla-mantis-body');
+      tbody.innerHTML = '';
+
+      const filterEst = document.getElementById('filter-estado').value;
+      const filterPrio = document.getElementById('filter-prioridad').value;
+      const searchId = document.getElementById('search-id').value.trim().toLowerCase();
+
+      let filtered = activeTickets.filter(t => {
+        let matchSearch = !searchId || t.id.toLowerCase().includes(searchId);
+        let matchEst = (filterEst === 'todos') || (t.estado === filterEst);
+        let matchPrio = (filterPrio === 'todas') || (t.prioridadUsuario === filterPrio);
+        return matchSearch && matchEst && matchPrio;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 1rem; color: var(--muted);">No hay tickets cargados o que coincidan con la búsqueda.</td></tr>';
+        document.getElementById('page-info').innerText = "Mostrando 0 de 0";
+        document.getElementById('pagination-controls').innerHTML = '';
+        return;
+      }
+
+      const totalPages = Math.ceil(filtered.length / itemsPerPage);
+      if (currentPage > totalPages) currentPage = totalPages;
+
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = Math.min(startIndex + itemsPerPage, filtered.length);
+      const paginatedItems = filtered.slice(startIndex, endIndex);
+
+      let totalAltaTickets = activeTickets.filter(t => t.prioridadUsuario === 'Alta').length;
+      let totalEscala = Math.max(totalAltaTickets, 10);
+
+      paginatedItems.forEach(t => {
+        const p = t.prioridadUsuario;
+        const r = t.rankingAlta;
+
+        let colPrioHtml = '';
+        if (currentUser.role === 'admin') {
+          colPrioHtml = `<span class="badge-prio badge-${p.slice(0,4)}">${p === 'Alta' ? '🔴 Alta #' + (r === 'Sin asignar' ? '?' : r) : (p === 'Media' ? '🟡 Media' : (p === 'Baja' ? '🟢 Baja' : '⚪ Sin prio'))}</span>`;
+        } else {
+          let rankSelectHtml = '';
+          if (p === 'Alta') {
+            let ocupados = obtenerRankingsOcupados(t.id);
+            let options = '';
+
+            let esSinAsignar = (r === 'Sin asignar');
+            options += `<option value="Sin asignar" ${esSinAsignar ? 'selected' : ''} disabled>❓ Elegir #</option>`;
+
+            for (let i = 1; i <= totalEscala; i++) {
+              let numStr = i.toString();
+              let estaOcupado = ocupados.has(numStr);
+              let esMiValor = (r === numStr);
+
+              if (estaOcupado && !esMiValor) {
+                options += `<option value="${i}" disabled style="color: #cbd5e1; background: #f1f5f9;">#${i} (ocupado)</option>`;
+              } else {
+                options += `<option value="${i}" ${esMiValor ? 'selected' : ''}>#${i}</option>`;
+              }
+            }
+            rankSelectHtml = `<select class="rank-select ${esSinAsignar ? 'rank-pending' : ''}" title="Indica el puesto de urgencia (1 al ${totalEscala})" onchange="cambiarRanking('${t.id}', this.value)">${options}</select>`;
+          }
+
+          colPrioHtml = `
+            <div class="prio-container">
+              <select class="prioridad-select" onchange="cambiarPrioridad('${t.id}', this.value)" style="${p === 'Sin asignar' ? 'border: 1.5px solid #ef4444; background: #fff5f5;' : ''}">
+                <option value="Sin asignar" ${p === 'Sin asignar' ? 'selected' : ''}>⚠️ Definir</option>
+                <option value="Alta" ${p === 'Alta' ? 'selected' : ''}>🔴 Alta</option>
+                <option value="Media" ${p === 'Media' ? 'selected' : ''}>🟡 Media</option>
+                <option value="Baja" ${p === 'Baja' ? 'selected' : ''}>🟢 Baja</option>
+              </select>
+              ${rankSelectHtml}
+            </div>`;
+        }
+
+        let badgeNuevo = (currentUser.role === 'user' && t.esNuevo) ? '<span class="new-ticket-badge">¡NUEVO!</span>' : '';
+        let badgeActualizado = (currentUser.role === 'user' && t.esActualizado) ? '<span class="updated-ticket-badge">¡AVANCE!</span>' : '';
+        let campanitaHtml = (currentUser.role === 'user' && t.esActualizado) ? '<span class="bell-icon" title="¡Este ticket fue actualizado recientemente!">🔔</span>' : '';
+        let btnLink = (t.link && t.link.length > 5) ? `<a href="${t.link}" target="_blank" class="btn-link-mantis">🔗 Abrir</a>` : '-';
+
+        tbody.innerHTML += `
+          <tr>
+            <td>${colPrioHtml}</td>
+            <td class="badge-id">#${t.id} ${badgeNuevo} ${badgeActualizado}</td>
+            <td><span class="status-badge">${t.estado}</span></td>
+            <td><b>${t.resumen}</b></td>
+            <td><div class="desc-box">${t.descripcion}</div></td>
+            <td style="white-space:nowrap">${t.informador}</td>
+            <td style="white-space:nowrap"><b>${t.asignada}</b></td>
+            <td style="white-space:nowrap">${t.fechaEnvio}</td>
+            <td style="white-space:nowrap">${t.actualizada} ${campanitaHtml}</td>
+            <td>${btnLink}</td>
+          </tr>`;
+      });
+
+      document.getElementById('page-info').innerText = `Mostrando ${startIndex + 1}-${endIndex} de ${filtered.length} solicitudes`;
+      renderPaginationControls(totalPages);
+    }
+
+    function renderPaginationControls(totalPages) {
+      const container = document.getElementById('pagination-controls');
+      container.innerHTML = '';
+      if (totalPages <= 1) return;
+
+      const prevBtn = document.createElement('button');
+      prevBtn.innerText = '‹ Anterior';
+      prevBtn.disabled = currentPage === 1;
+      prevBtn.onclick = () => { currentPage--; renderTablaPaginada(); };
+      container.appendChild(prevBtn);
+
+      for (let page = 1; page <= totalPages; page++) {
+        const pageBtn = document.createElement('button');
+        pageBtn.innerText = page;
+        if (page === currentPage) pageBtn.classList.add('active');
+        pageBtn.onclick = () => { currentPage = page; renderTablaPaginada(); };
+        container.appendChild(pageBtn);
+      }
+
+      const nextBtn = document.createElement('button');
+      nextBtn.innerText = 'Siguiente ›';
+      nextBtn.disabled = currentPage === totalPages;
+      nextBtn.onclick = () => { currentPage++; renderTablaPaginada(); };
+      container.appendChild(nextBtn);
+    }
+
+    // GESTION ADMIN DE NUEVAS SOLICITUDES
+    function renderAdminSolicitudes() {
+      const tbody = document.getElementById('tabla-admin-solicitudes-body');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      if (misSolicitudesPendientes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 1.5rem; color: var(--muted);">No hay solicitudes pendientes de ingresar a Mantis.</td></tr>';
+        return;
+      }
+
+      misSolicitudesPendientes.forEach((s) => {
+        let realIndex = rawTodasSolicitudes.findIndex(item => item.fecha === s.fecha && item.titulo === s.titulo);
+        let adjuntoHtml = '<span style="color:var(--muted); font-size:0.8rem;">Sin adjunto</span>';
+        if (s.archivo) {
+          adjuntoHtml = `<a class="btn-link-mantis" href="${s.archivo.base64}" download="${s.archivo.nombre}">📎 ${s.archivo.nombre}</a>`;
+        }
+
+        tbody.innerHTML += `
+          <tr>
+            <td><span style="color:#ef4444; font-weight:bold;">🔴 NUEVA</span></td>
+            <td><span class="badge-prio badge-${s.prioridad}">${s.prioridad}</span></td>
+            <td style="white-space:nowrap">${s.fecha}</td>
+            <td><b>${s.titulo}</b></td>
+            <td>${s.informador}</td>
+            <td>${s.area}</td>
+            <td><div class="desc-box">${s.descripcion}</div></td>
+            <td>${adjuntoHtml}</td>
+            <td>
+              <button class="btn-action-created" onclick="marcarCreado(${realIndex})">🎫 Ticket Creado</button>
+            </td>
+          </tr>`;
+      });
+    }
+
+    function marcarCreado(idx) {
+      if (idx !== -1 && rawTodasSolicitudes[idx]) {
+        rawTodasSolicitudes[idx].procesada = true;
+        localStorage.setItem('solicitudes_pendientes', JSON.stringify(rawTodasSolicitudes));
+        cargarDatosLocales(false);
+      }
+    }
+
+    function descargarCSVNuevas() {
+      if (!misSolicitudesPendientes.length) return alert('No hay solicitudes pendientes para exportar.');
+
+      let csv = "\uFEFFFecha;Prioridad;Informador;Area;Titulo;Descripcion\n";
+      misSolicitudesPendientes.forEach(s => {
+        let tit = s.titulo.replace(/"/g, '""');
+        let desc = s.descripcion.replace(/"/g, '""').replace(/\n/g, ' ');
+        csv += `"${s.fecha}";"${s.prioridad}";"${s.informador}";"${s.area}";"${tit}";"${desc}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `nuevas_solicitudes_mantis_${new Date().toISOString().slice(0,10)}.csv`;
+      link.click();
+    }
+
+    // METODO JSONP NATIVO DE GOOGLE
+    function cargarDesdeGoogleSheets(mostrarAlerta = true) {
+      const statusEl = document.getElementById('sync-status');
+      if (statusEl) statusEl.innerText = '⏳ Sincronizando con Google Sheets...';
+
+      window._mostrarAlertaGS = mostrarAlerta;
+
+      const scriptExistente = document.getElementById('gs-jsonp-script');
+      if (scriptExistente) scriptExistente.remove();
+
+      const script = document.createElement('script');
+      script.id = 'gs-jsonp-script';
+      script.src = `${GOOGLE_SHEETS_JSONP_URL}&t=${Date.now()}`;
+      script.onerror = function() {
+        if (statusEl) statusEl.innerText = '⚠️ Error al conectar con Google Sheets.';
+        if (window._mostrarAlertaGS) alert('⚠️ No se pudo descargar los datos de Google Sheets.');
+      };
+      document.body.appendChild(script);
+    }
+
+    // Callback llamado directamente por Google
+    function procesarRespuestaGoogleSheets(jsonResponse) {
+      const statusEl = document.getElementById('sync-status');
+      try {
+        if (!jsonResponse || !jsonResponse.table || !jsonResponse.table.rows) {
+          throw new Error("Respuesta vacía de Google Sheets");
+        }
+
+        const rows = jsonResponse.table.rows;
+        const dataConvertida = [];
+
+        // Encabezados
+        if (jsonResponse.table.cols) {
+          dataConvertida.push(jsonResponse.table.cols.map(c => c ? (c.label || '') : ''));
+        }
+
+        // Filas de datos
+        rows.forEach(r => {
+          const fila = r.c ? r.c.map(cell => cell ? (cell.f || cell.v || '') : '') : [];
+          dataConvertida.push(fila);
+        });
+
+        procesarFilas(dataConvertida, { silencioso: true });
+
+        const ahora = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (statusEl) statusEl.innerText = `✅ Sincronizado con Google Sheets a las ${ahora} (${activeTickets.length} tickets cargados)`;
+        if (window._mostrarAlertaGS) alert(`✅ Datos actualizados desde Google Sheets. Se cargaron ${activeTickets.length} tickets activos.`);
+
+      } catch (err) {
+        console.error('Error procesando Google Sheets:', err);
+        if (statusEl) statusEl.innerText = '⚠️ Error al procesar formato de Google Sheets.';
+        if (window._mostrarAlertaGS) alert('⚠️ No se pudo interpretar la estructura de la planilla.');
+      }
+    }
+
+    function procesarFilas(data, opciones = {}) {
+      if (!data || data.length < 2) {
+        if (!opciones.silencioso) alert('El archivo no contiene filas válidas.');
+        return;
+      }
+      const ticketsMap = new Map();
+
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        if (!row || row.length < 2) continue;
+
+        let idRaw = row[0] ? row[0].toString().trim() : '';
+        let idLimpio = idRaw.replace(/[^0-9]/g, '');
+
+        if (idLimpio) {
+          let linkVal = row[1] ? row[1].toString().trim() : '';
+          let informadorVal = row[2] ? row[2].toString().trim() : '-';
+          let asignadaVal = row[3] ? row[3].toString().trim() : '-';
+          let fechaEnvioVal = row[4] ? row[4].toString().trim() : '-';
+          let actualizadaVal = row[5] ? row[5].toString().trim() : '-';
+          let resumenVal = row[6] ? row[6].toString().trim() : '-';
+          let estadoVal = row[7] ? row[7].toString().trim() : '-';
+          let descVal = row[8] ? row[8].toString().trim() : '-';
+
+          let stLower = estadoVal.toLowerCase();
+          if (stLower === 'cerrado' || stLower === 'resuelto') continue;
+
+          let idFormateado = idLimpio.padStart(7, '0');
+          ticketsMap.set(idFormateado, {
+            id: idFormateado, link: linkVal, informador: informadorVal, asignada: asignadaVal,
+            fechaEnvio: fechaEnvioVal, actualizada: actualizadaVal, resumen: resumenVal, estado: estadoVal, descripcion: descVal
+          });
+        }
+      }
+
+      activeTickets = Array.from(ticketsMap.values());
+      if (activeTickets.length === 0) {
+        if (!opciones.silencioso) alert('⚠️ No se encontraron tickets activos.');
+        return;
+      }
+
+      localStorage.setItem('mantis_tickets_data', JSON.stringify(activeTickets));
+      cargarDatosLocales(true);
+      if (!opciones.silencioso) alert(`✅ ¡Cargado con éxito! Se importaron ${activeTickets.length} tickets activos.`);
+    }
+
+    function limpiarCacheTotal() {
+      if (confirm('⚠️ ¿Estás seguro de que deseas BORRAR TODO DE CERO?\nEsto eliminará las prioridades guardadas y tickets.')) {
+        localStorage.clear();
+        activeTickets = [];
+        rawTodasSolicitudes = [];
+        misSolicitudesPendientes = [];
+        cargarDatosLocales(true);
+        alert('✅ Memoria borrada de cero.');
+      }
+    }
+
+    function renderMisSolicitudes() {
+      const tbody = document.getElementById('tabla-mis-solicitudes-body');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      if (misSolicitudesPendientes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 1.5rem; color: var(--muted);">Aún no tienes solicitudes pendientes de ingresar a Mantis.</td></tr>';
+        return;
+      }
+
+      misSolicitudesPendientes.slice().reverse().forEach((s) => {
+        let realIndex = rawTodasSolicitudes.findIndex(item => item.fecha === s.fecha && item.titulo === s.titulo);
+
+        tbody.innerHTML += `
+          <tr>
+            <td><span class="status-pending">⏳ En revisión</span></td>
+            <td style="white-space:nowrap">${s.fecha}</td>
+            <td><b>${s.titulo}</b></td>
+            <td>${s.informador}</td>
+            <td>${s.area}</td>
+            <td><b>${s.prioridad}</b></td>
+            <td><div class="desc-box">${s.descripcion}</div></td>
+            <td>
+              <button class="btn-delete" onclick="borrarMiSolicitud(${realIndex})" title="Eliminar solicitud">🗑️ Borrar</button>
+            </td>
+          </tr>`;
+      });
+    }
+
+    function borrarMiSolicitud(idx) {
+      if (confirm('¿Estás seguro de que deseas cancelar y eliminar esta solicitud?')) {
+        if (idx !== -1 && rawTodasSolicitudes[idx]) {
+          rawTodasSolicitudes.splice(idx, 1);
+          localStorage.setItem('solicitudes_pendientes', JSON.stringify(rawTodasSolicitudes));
+          cargarDatosLocales(false);
+        }
+      }
+    }
+
+    async function guardarNuevaSolicitud(e) {
+      e.preventDefault();
+      const fileInput = document.getElementById('adjunto');
+      let archivoData = null;
+
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const base64 = await fileToBase64(file);
+        archivoData = { nombre: file.name, base64: base64 };
+      }
+
+      const ahora = new Date();
+      const fecha = ahora.toISOString().split('T')[0] + ' ' + ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+      const solicitudes = JSON.parse(localStorage.getItem('solicitudes_pendientes') || '[]');
+      solicitudes.push({
+        fecha: fecha,
+        titulo: document.getElementById('titulo').value.trim(),
+        informador: document.getElementById('informador').value.trim(),
+        area: document.getElementById('area').value.trim(),
+        prioridad: document.getElementById('prioridad').value,
+        descripcion: document.getElementById('descripcion').value.trim(),
+        archivo: archivoData,
+        procesada: false
+      });
+
+      localStorage.setItem('solicitudes_pendientes', JSON.stringify(solicitudes));
+      alert('✅ ¡Solicitud enviada con éxito!');
+      document.getElementById('form-nuevo').reset();
+      cargarDatosLocales(false);
+      switchTab('mis-solicitudes');
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+      });
+    }
+  </script>
+</body>
+</html>
