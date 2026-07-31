@@ -309,10 +309,9 @@
       'admin': { pass: 'Coppel2026', role: 'admin', name: 'Administrador' }
     };
 
-    // URL DEL SERVIDOR EN LA NUBE PROPORCIONADA
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw_UwUyUCEUpAnmzXd-u6-hth0FGpKfGbNe0baIZsJI8riEcbO5c-NUn5CSTYYroDL1-g/exec';
 
-    const SYNC_INTERVAL = 1.5 * 60 * 1000; // Sincroniza en vivo cada 90 segundos
+    const SYNC_INTERVAL = 1.5 * 60 * 1000;
 
     let currentUser = null;
     let activeTickets = [];
@@ -322,6 +321,7 @@
     let userRankings = {};
     let currentPage = 1;
     const itemsPerPage = 10;
+    let isResetMode = false;
 
     let lastUserViewTime = localStorage.getItem('last_user_view_time') || new Date(0).toISOString().split('T')[0];
 
@@ -361,12 +361,13 @@
 
       configurarInterfazPorRol();
       
-      // Conexión inicial con el servidor universal
       sincronizarServidorUniversal(false);
 
       if (window._syncIntervalId) clearInterval(window._syncIntervalId);
       window._syncIntervalId = setInterval(() => {
-        sincronizarServidorUniversal(false);
+        if(!isResetMode) {
+          sincronizarServidorUniversal(false);
+        }
       }, SYNC_INTERVAL);
     }
 
@@ -425,20 +426,30 @@
       localStorage.setItem('last_user_view_time', hoy);
     }
 
+    // NORMALIZADOR INTELIGENTE DE FECHAS (Saca 'T', 'Z' y horas raras para dejar YYYY-MM-DD siempre limpia)
     function formatearFechaAISO(dateStr) {
       if (!dateStr || dateStr === '-') return '1970-01-01';
-      let parts = dateStr.trim().split(/[\s\/-]+/);
+      let str = dateStr.toString().trim();
+      
+      // Si viene con formato '2026-07-07T03:00:00.000Z'
+      if (str.includes('T')) {
+        str = str.split('T')[0];
+      }
+
+      let parts = str.split(/[\s\/-]+/);
       if (parts.length >= 3) {
-        if (parts[0].length === 4) return `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+        if (parts[0].length === 4) {
+          return `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+        }
         return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
       }
-      return dateStr;
+      return str;
     }
 
     function cargarDatosLocales() {
       misSolicitudesPendientes = rawTodasSolicitudes.filter(s => !s.procesada);
 
-      if (activeTickets && activeTickets.length > 0) {
+      if (activeTickets && activeTickets.length > 0 && !isResetMode) {
         const estados = [...new Set(activeTickets.map(t => t.estado))];
         const selectEstado = document.getElementById('filter-estado');
         if(selectEstado) {
@@ -560,6 +571,13 @@
       const tbody = document.getElementById('tabla-mantis-body');
       tbody.innerHTML = '';
 
+      if(isResetMode || activeTickets.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 1.5rem; color: var(--muted);">Pantalla reseteada / Sin tickets cargados. Haz clic en "Sincronizar Google Sheets".</td></tr>';
+        document.getElementById('page-info').innerText = "Mostrando 0 de 0";
+        document.getElementById('pagination-controls').innerHTML = '';
+        return;
+      }
+
       const filterEst = document.getElementById('filter-estado').value;
       const filterPrio = document.getElementById('filter-prioridad').value;
       const searchId = document.getElementById('search-id').value.trim().toLowerCase();
@@ -591,13 +609,6 @@
           return a.id.localeCompare(b.id);
         }
       });
-
-      if (displayList.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 1.5rem; color: var(--muted);">No hay tickets cargados en pantalla. Haz clic en "Sincronizar Google Sheets".</td></tr>';
-        document.getElementById('page-info').innerText = "Mostrando 0 de 0";
-        document.getElementById('pagination-controls').innerHTML = '';
-        return;
-      }
 
       const totalPages = Math.ceil(displayList.length / itemsPerPage);
       if (currentPage > totalPages) currentPage = totalPages;
@@ -656,6 +667,9 @@
         let campanitaHtml = (currentUser.role === 'user' && t.esActualizado) ? '<span class="bell-icon" title="¡Este ticket fue actualizado recientemente!">🔔</span>' : '';
         let btnLink = (t.link && t.link.length > 5) ? `<a href="${t.link}" target="_blank" class="btn-link-mantis">🔗 Abrir</a>` : '-';
 
+        let fechaEnvioLimpia = formatearFechaAISO(t.fechaEnvio);
+        let fechaActualizadaLimpia = formatearFechaAISO(t.actualizada);
+
         tbody.innerHTML += `
           <tr>
             <td>${colPrioHtml}</td>
@@ -665,8 +679,8 @@
             <td><div class="desc-box">${t.descripcion}</div></td>
             <td style="white-space:nowrap">${t.informador}</td>
             <td style="white-space:nowrap"><b>${t.asignada}</b></td>
-            <td style="white-space:nowrap">${t.fechaEnvio}</td>
-            <td style="white-space:nowrap">${t.actualizada} ${campanitaHtml}</td>
+            <td style="white-space:nowrap">${fechaEnvioLimpia}</td>
+            <td style="white-space:nowrap">${fechaActualizadaLimpia} ${campanitaHtml}</td>
             <td>${btnLink}</td>
           </tr>`;
       });
@@ -769,7 +783,7 @@
         let prio = t.prioridadUsuario || 'Sin asignar';
         let rank = t.rankingAlta || '-';
         let res = t.resumen.replace(/"/g, '""');
-        csv += `"${t.id}";"${prio}";"${rank}";"${t.estado}";"${res}";"${t.informador}";"${t.asignada}";"${t.fechaEnvio}";"${t.actualizada}";"${t.link}"\n`;
+        csv += `"${t.id}";"${prio}";"${rank}";"${t.estado}";"${res}";"${t.informador}";"${t.asignada}";"${formatearFechaAISO(t.fechaEnvio)}";"${formatearFechaAISO(t.actualizada)}";"${t.link}"\n`;
       });
 
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -779,10 +793,10 @@
       link.click();
     }
 
-    // CONEXION UNIVERSAL NATIVA CON APPS SCRIPT (DESCARGA TODO PARA CUALQUIER PC)
     function sincronizarServidorUniversal(mostrarAlerta = true) {
+      isResetMode = false;
       const statusEl = document.getElementById('sync-status');
-      if (statusEl) statusEl.innerText = '⏳ Sincronizando con Servidor Universal Google...';
+      if (statusEl) statusEl.innerText = '⏳ Sincronizando con Google Sheets...';
 
       window._mostrarAlertaGS = mostrarAlerta;
 
@@ -806,7 +820,6 @@
           throw new Error("Respuesta vacía del Servidor Universal");
         }
 
-        // Cargar prioridades, rankings y solicitudes globales compartidas
         userPriorities = jsonResponse.prioridades || {};
         userRankings = jsonResponse.rankings || {};
         rawTodasSolicitudes = jsonResponse.solicitudes || [];
@@ -814,8 +827,8 @@
         procesarFilas(jsonResponse.tabla, { silencioso: true });
 
         const ahora = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        if (statusEl) statusEl.innerText = `✅ Sincronizado universal a las ${ahora} (${activeTickets.length} tickets activos)`;
-        if (window._mostrarAlertaGS) alert(`✅ Conectado al Servidor Universal. ${activeTickets.length} tickets cargados para todas las computadoras.`);
+        if (statusEl) statusEl.innerText = `✅ Sincronizado con Google Sheets a las ${ahora} (${activeTickets.length} tickets activos)`;
+        if (window._mostrarAlertaGS) alert(`✅ Conectado a Google Sheets. ${activeTickets.length} tickets cargados.`);
 
       } catch (err) {
         console.error('Error procesando respuesta universal:', err);
@@ -859,7 +872,6 @@
       cargarDatosLocales();
     }
 
-    // GUARDA DATOS EN EL SERVIDOR UNIVERSAL (ACCESIBLE DESDE CUALQUIER PC)
     function guardarEnServidorUniversal(accion, payload) {
       payload.action = accion;
       fetch(APPS_SCRIPT_URL, {
@@ -870,23 +882,20 @@
       }).catch(err => console.error("Error guardando en el servidor universal:", err));
     }
 
-    // RESET GENERAL EN LA NUBE PARA TODAS LAS PCS
+    // EL RESET DEJA LA PANTALLA TOTALMENTE LIMPIA Y BORRA MEMORIA
     function limpiarCacheTotal() {
-      if (confirm('⚠️ ¿Deseas hacer un RESET TOTAL EN LA NUBE?\nEsto BORRARÁ las prioridades y rankings para TODAS LAS PCS que usen el sistema (NO borra tu planilla Google Sheets).')) {
+      if (confirm('⚠️ ¿Deseas RESETEAR la pantalla por completo?\nEsto BORRARÁ las prioridades guardadas y vaciará la tabla (NO borra tu planilla Google Sheets).')) {
+        isResetMode = true;
         userPriorities = {};
         userRankings = {};
+        activeTickets = [];
         
-        activeTickets.forEach(t => {
-          t.prioridadUsuario = 'Sin asignar';
-          t.rankingAlta = 'Sin asignar';
-        });
-
         cargarDatosLocales();
         guardarEnServidorUniversal('reset_all', {});
         
         const statusEl = document.getElementById('sync-status');
-        if (statusEl) statusEl.innerText = '💥 Memoria universal reseteada para todas las PCs.';
-        alert('✅ Reset universal realizado.');
+        if (statusEl) statusEl.innerText = '💥 Pantalla vacía. Presiona "Sincronizar Google Sheets" para volver a cargar la información.';
+        alert('✅ Pantalla limpia por completo.');
       }
     }
 
@@ -957,7 +966,7 @@
       cargarDatosLocales();
       guardarEnServidorUniversal('save_solicitudes', { solicitudes: rawTodasSolicitudes });
 
-      alert('✅ ¡Solicitud enviada con éxito! Ya la puede ver el Administrador desde cualquier computadora.');
+      alert('✅ ¡Solicitud enviada con éxito!');
       document.getElementById('form-nuevo').reset();
       switchTab('mis-solicitudes');
     }
@@ -972,5 +981,4 @@
     }
   </script>
 </body>
-</html>
 </html>
