@@ -41,10 +41,15 @@
 
     .badge-alert {
       background: var(--danger); color: white; border-radius: 999px;
-      padding: 0.15rem 0.4rem; font-size: 0.7rem; font-weight: bold;
-      margin-left: 0.4rem; animation: pulse 1.5s infinite;
+      padding: 0.15rem 0.5rem; font-size: 0.7rem; font-weight: bold;
+      margin-left: 0.4rem; animation: pulse 1.5s infinite; cursor: pointer;
     }
-    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+    .badge-alert-blue {
+      background: var(--updated); color: white; border-radius: 999px;
+      padding: 0.15rem 0.5rem; font-size: 0.7rem; font-weight: bold;
+      margin-left: 0.4rem; animation: pulse 1.5s infinite; cursor: pointer;
+    }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
 
     .card { background: var(--card); border-radius: 0.75rem; padding: 1.25rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid var(--border); margin-bottom: 1rem; }
     
@@ -190,9 +195,18 @@
             </select>
           </div>
           <div>
+            <label>Ver Especial:</label>
+            <select id="filter-especial" onchange="renderTablaPaginada()">
+              <option value="todos">Todos los Tickets</option>
+              <option value="nuevos">🔴 Solo Tickets Nuevos (Sin prio)</option>
+              <option value="avances">🔔 Solo Tickets con Avances</option>
+            </select>
+          </div>
+          <div>
             <label>↕️ Ordenar Lista Por:</label>
             <select id="sort-order" onchange="renderTablaPaginada()">
-              <option value="id">🆔 ID del Ticket (Por defecto)</option>
+              <option value="inteligente">🔥 Nuevos y Avances Primero (Recomendado)</option>
+              <option value="id">🆔 ID del Ticket</option>
               <option value="prioridad">🔴 Prioridad (Alta / Media / Baja)</option>
               <option value="ranking">🔢 Ranking Puesto # (Solo Altas)</option>
             </select>
@@ -390,7 +404,7 @@
           <button id="btn-tab-tickets" class="active" onclick="switchTab('tickets')">🛠️ Cargar Mantis</button>
           <button id="btn-tab-admin-solicitudes" onclick="switchTab('admin-solicitudes')">
             📥 Solicitudes de Usuarios
-            <span id="alert-counter" class="badge-alert" style="display:none;">0 NUEVAS</span>
+            <span id="alert-counter" class="badge-alert" style="display:none;" onclick="irASolicitudesUsuario(event)">0 NUEVAS</span>
           </button>`;
         document.getElementById('admin-actions-bar').style.display = 'flex';
         document.getElementById('title-tickets').innerText = '👑 Panel Administrador - Actualizar Mantis';
@@ -398,7 +412,8 @@
         tabsBar.innerHTML = `
           <button id="btn-tab-tickets" class="active" onclick="switchTab('tickets')">
             📊 Solicitudes Activas en Mantis
-            <span id="user-alert-counter" class="badge-alert" style="display:none;"></span>
+            <span id="user-alert-counter-nuevos" class="badge-alert" style="display:none;" onclick="filtrarAlerta('nuevos', event)"></span>
+            <span id="user-alert-counter-avances" class="badge-alert-blue" style="display:none;" onclick="filtrarAlerta('avances', event)"></span>
           </button>
           <button id="btn-tab-nuevo" onclick="switchTab('nuevo')">📝 Enviar Nueva Solicitud</button>
           <button id="btn-tab-mis-solicitudes" onclick="switchTab('mis-solicitudes')">📋 Mis Solicitudes Recientes</button>`;
@@ -407,6 +422,21 @@
       }
 
       switchTab('tickets');
+    }
+
+    function irASolicitudesUsuario(e) {
+      if(e) e.stopPropagation();
+      switchTab('admin-solicitudes');
+    }
+
+    function filtrarAlerta(tipo, e) {
+      if(e) e.stopPropagation();
+      switchTab('tickets');
+      const selectEspecial = document.getElementById('filter-especial');
+      if (selectEspecial) {
+        selectEspecial.value = tipo;
+        renderTablaPaginada();
+      }
     }
 
     function switchTab(tab) {
@@ -543,16 +573,21 @@
           }
         }
       } else {
-        const counterEl = document.getElementById('user-alert-counter');
-        if (counterEl) {
-          let msgs = [];
-          if (actualizados > 0) msgs.push(`🔔 ${actualizados} CON AVANCES`);
-          if (nuevos > 0) msgs.push(`🔴 ${nuevos} NUEVO${nuevos > 1 ? 'S' : ''}`);
+        const counterElNuevos = document.getElementById('user-alert-counter-nuevos');
+        const counterElAvances = document.getElementById('user-alert-counter-avances');
+        
+        if (counterElNuevos) {
+          if (nuevos > 0) {
+            counterElNuevos.innerText = `🔴 ${nuevos} NUEVO${nuevos > 1 ? 'S' : ''}`;
+            counterElNuevos.style.display = 'inline-block';
+          } else counterElNuevos.style.display = 'none';
+        }
 
-          if (msgs.length > 0) {
-            counterEl.innerText = msgs.join(' | ');
-            counterEl.style.display = 'inline-block';
-          } else counterEl.style.display = 'none';
+        if (counterElAvances) {
+          if (actualizados > 0) {
+            counterElAvances.innerText = `🔔 ${actualizados} CON AVANCES`;
+            counterElAvances.style.display = 'inline-block';
+          } else counterElAvances.style.display = 'none';
         }
       }
     }
@@ -585,6 +620,7 @@
 
       const filterEst = document.getElementById('filter-estado').value;
       const filterPrio = document.getElementById('filter-prioridad').value;
+      const filterEsp = document.getElementById('filter-especial') ? document.getElementById('filter-especial').value : 'todos';
       const searchId = document.getElementById('search-id').value.trim().toLowerCase();
       const sortType = document.getElementById('sort-order').value;
 
@@ -592,12 +628,29 @@
         let matchSearch = !searchId || t.id.toLowerCase().includes(searchId);
         let matchEst = (filterEst === 'todos') || (t.estado === filterEst);
         let matchPrio = (filterPrio === 'todas') || (t.prioridadUsuario === filterPrio);
-        return matchSearch && matchEst && matchPrio;
+        
+        let matchEsp = true;
+        if(filterEsp === 'nuevos') matchEsp = t.esNuevo;
+        if(filterEsp === 'avances') matchEsp = t.esActualizado;
+
+        return matchSearch && matchEst && matchPrio && matchEsp;
       });
 
       let displayList = [...filtered];
       displayList.sort((a, b) => {
-        if (sortType === 'prioridad') {
+        if (sortType === 'inteligente') {
+          // ORDENA PRIMERO: NUEVOS Y AVANCES ARRIBA
+          let pesoA = (a.esNuevo || a.esActualizado) ? 1 : 2;
+          let pesoB = (b.esNuevo || b.esActualizado) ? 1 : 2;
+          if (pesoA !== pesoB) return pesoA - pesoB;
+
+          // Luego ordenamos por Prioridad
+          const pesoPrio = { "Alta": 1, "Media": 2, "Baja": 3, "Sin asignar": 4 };
+          let pA = pesoPrio[a.prioridadUsuario] || 5;
+          let pB = pesoPrio[b.prioridadUsuario] || 5;
+          if (pA !== pB) return pA - pB;
+          return a.id.localeCompare(b.id);
+        } else if (sortType === 'prioridad') {
           const peso = { "Alta": 1, "Media": 2, "Baja": 3, "Sin asignar": 4 };
           let pA = peso[a.prioridadUsuario] || 5;
           let pB = peso[b.prioridadUsuario] || 5;
