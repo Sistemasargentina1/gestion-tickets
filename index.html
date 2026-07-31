@@ -39,6 +39,7 @@
     .nav-tabs button { background: white; border: 1px solid var(--border); padding: 0.6rem 1.1rem; border-radius: 0.6rem; cursor: pointer; font-weight: bold; position: relative; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; }
     .nav-tabs button.active { background: var(--primary); color: white; border-color: var(--primary); }
 
+    /* ALERTAS ESTILO PÍLDORA */
     .badge-alert {
       background: #ef4444; color: white; border-radius: 999px;
       padding: 0.2rem 0.6rem; font-size: 0.75rem; font-weight: 800;
@@ -73,6 +74,7 @@
     textarea { resize: vertical; min-height: 80px; }
     .btn-submit { background: var(--primary); color: white; border: none; padding: 0.75rem 1.25rem; border-radius: 0.5rem; font-weight: bold; font-size: 0.9rem; cursor: pointer; width: 100%; }
     
+    /* BOTONES ACCION ADMIN */
     .btn-export { background: #0284c7; color: white; border: none; padding: 0.5rem 0.8rem; border-radius: 0.5rem; cursor: pointer; font-weight: bold; font-size: 0.8rem; }
     .btn-sync { background: #7c3aed; color: white; border: none; padding: 0.5rem 0.8rem; border-radius: 0.5rem; cursor: pointer; font-weight: bold; font-size: 0.8rem; }
 
@@ -205,11 +207,12 @@
           <div>
             <label>↕️ Ordenar Lista Por:</label>
             <select id="sort-order" onchange="onFiltroCambiado()">
-              <option value="inteligente">🚨 Nuevos y Avances Primero (Recomendado)</option>
+              <option value="inteligente">🔥 Nuevos y Avances Primero (Recomendado)</option>
               <option value="fecha_asc">📅 Fecha de Envío (Más Viejo a Más Nuevo)</option>
               <option value="fecha_desc">📅 Fecha de Envío (Más Nuevo a Más Viejo)</option>
               <option value="id">🆔 ID del Ticket</option>
-              <option value="prioridad">🔴 Prioridad (Alta / Media / Baja)</option           
+              <option value="prioridad">🔴 Prioridad (Alta / Media / Baja)</option>
+              <option value="ranking">🔢 Ranking Puesto # (Solo Altas)</option>
             </select>
           </div>
           <div>
@@ -347,7 +350,7 @@
     let userRankings = {};
     let currentPage = 1;
     const itemsPerPage = 10;
-    let filtroAlertaActivo = null; // 'nuevos' | 'avances' | null
+    let filtroAlertaActivo = null;
 
     let lastUserViewTime = localStorage.getItem('last_user_view_time') || new Date(0).toISOString().split('T')[0];
 
@@ -452,7 +455,7 @@
     }
 
     function onFiltroCambiado() {
-      currentPage = 1; // RESET DE PAGINA PARA EVITAR BUG DE TABLA EN BLANCO
+      currentPage = 1;
       renderTablaPaginada();
     }
 
@@ -558,7 +561,6 @@
       return ocupados;
     }
 
-    // AL ELEGIR 'ALTA', MANTIENE EL TICKET EN PANTALLA HASTA QUE SE ELIJA EL NUMERO DE URGENCIA
     function cambiarPrioridad(ticketId, nuevaPrioridad) {
       userPriorities[ticketId] = nuevaPrioridad;
 
@@ -575,7 +577,7 @@
         } else {
           t.rankingAlta = 'Sin asignar';
           delete userRankings[ticketId];
-          renderTablaPaginada(); // Muestra el desplegable en rojo sin reordenar de golpe
+          renderTablaPaginada();
         }
       }
     }
