@@ -469,6 +469,7 @@
         renderTablaPaginada();
       } else {
         activeTickets = [];
+        actualizarContadoresAlertas(0, 0);
         renderTablaPaginada();
       }
 
@@ -527,7 +528,9 @@
           if (noLeidas > 0) {
             counterEl.innerText = `${noLeidas} NUEVA${noLeidas > 1 ? 'S' : ''}`;
             counterEl.style.display = 'inline-block';
-          } else counterEl.style.display = 'none';
+          } else {
+            counterEl.style.display = 'none';
+          }
         }
       } else {
         const counterEl = document.getElementById('user-alert-counter');
@@ -860,7 +863,6 @@
       if (!opciones.silencioso) alert(`✅ ¡Cargado con éxito! Se importaron ${activeTickets.length} tickets activos.`);
     }
 
-    // MODIFICADO: Elimina totalmente la memoria de los tickets cargados para todos
     function limpiarCacheTotal() {
       if (confirm('⚠️ ¿Deseas hacer un Reset Pantalla General?\nEsto borrará la vista de tickets para TODOS los usuarios (NO borra tu planilla de Google Sheets).')) {
         localStorage.removeItem('mantis_tickets_data');
