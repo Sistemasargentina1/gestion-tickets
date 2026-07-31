@@ -36,26 +36,37 @@
 
     /* NAVEGACION Y PESTAÑAS */
     .nav-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; flex-wrap: wrap; }
-    .nav-tabs button { background: white; border: 1px solid var(--border); padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; font-weight: bold; position: relative; font-size: 0.85rem; }
+    .nav-tabs button { background: white; border: 1px solid var(--border); padding: 0.6rem 1.1rem; border-radius: 0.6rem; cursor: pointer; font-weight: bold; position: relative; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; }
     .nav-tabs button.active { background: var(--primary); color: white; border-color: var(--primary); }
 
+    /* ALERTAS ESTILO PÍLDORA DESTACADA */
     .badge-alert {
-      background: var(--danger); color: white; border-radius: 999px;
-      padding: 0.15rem 0.5rem; font-size: 0.7rem; font-weight: bold;
-      margin-left: 0.4rem; animation: pulse 1.5s infinite; cursor: pointer;
+      background: #ef4444; color: white; border-radius: 999px;
+      padding: 0.2rem 0.6rem; font-size: 0.75rem; font-weight: 800;
+      margin-left: 0.3rem; animation: pulse 1.5s infinite; cursor: pointer;
+      box-shadow: 0 2px 5px rgba(239, 68, 68, 0.4); border: 1px solid rgba(255,255,255,0.3);
     }
     .badge-alert-blue {
-      background: var(--updated); color: white; border-radius: 999px;
-      padding: 0.15rem 0.5rem; font-size: 0.7rem; font-weight: bold;
-      margin-left: 0.4rem; animation: pulse 1.5s infinite; cursor: pointer;
+      background: #0284c7; color: white; border-radius: 999px;
+      padding: 0.2rem 0.6rem; font-size: 0.75rem; font-weight: 800;
+      margin-left: 0.3rem; animation: pulse 1.5s infinite; cursor: pointer;
+      box-shadow: 0 2px 5px rgba(2, 132, 199, 0.4); border: 1px solid rgba(255,255,255,0.3);
     }
-    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
+    .badge-alert:hover, .badge-alert-blue:hover { transform: scale(1.05); }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.06); } 100% { transform: scale(1); } }
 
     .card { background: var(--card); border-radius: 0.75rem; padding: 1.25rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid var(--border); margin-bottom: 1rem; }
     
     .filters-bar { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; background: #f1f5f9; padding: 0.75rem; border-radius: 0.5rem; align-items: center; }
     .filters-bar label { font-size: 0.8rem; font-weight: bold; }
-    .filters-bar select, .filters-bar input[type="text"] { padding: 0.3rem 0.5rem; border-radius: 0.375rem; border: 1px solid var(--border); font-size: 0.8rem; }
+    .filters-bar select, .filters-bar input[type="text"] { padding: 0.35rem 0.55rem; border-radius: 0.375rem; border: 1px solid var(--border); font-size: 0.8rem; }
+
+    .btn-clear-filters {
+      background: #e2e8f0; color: #334155; border: 1px solid #cbd5e1;
+      padding: 0.35rem 0.75rem; border-radius: 0.375rem; font-size: 0.8rem;
+      font-weight: bold; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-clear-filters:hover { background: #cbd5e1; color: #0f172a; }
 
     .form-group { margin-bottom: 1rem; }
     .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; }
@@ -195,20 +206,18 @@
             </select>
           </div>
           <div>
-            <label>Ver Especial:</label>
-            <select id="filter-especial" onchange="renderTablaPaginada()">
-              <option value="todos">Todos los Tickets</option>
-              <option value="nuevos">🔴 Solo Tickets Nuevos (Sin prio)</option>
-              <option value="avances">🔔 Solo Tickets con Avances</option>
+            <label>↕️ Ordenar Lista Por:</label>
+            <select id="sort-order" onchange="renderTablaPaginada()">
+              <option value="inteligente">🔥 Nuevos y Avances Primero (Recomendado)</option>
+              <option value="fecha_asc">📅 Fecha de Envío (Más Viejo a Más Nuevo)</option>
+              <option value="fecha_desc">📅 Fecha de Envío (Más Nuevo a Más Viejo)</option>
+              <option value="id">🆔 ID del Ticket</option>
+              <option value="prioridad">🔴 Prioridad (Alta / Media / Baja)</option>
+              <option value="ranking">🔢 Ranking Puesto # (Solo Altas)</option>
             </select>
           </div>
           <div>
-            <label>↕️ Ordenar Lista Por:</label>
-            <select id="sort-order" onchange="renderTablaPaginada()">
-              <option value="inteligente">🚨 Nuevos y Avances Primero (Recomendado)</option>
-              <option value="id">🆔 ID del Ticket</option>
-              <option value="prioridad">🔴 Prioridad (Alta / Media / Baja)</option>
-            </select>
+            <button class="btn-clear-filters" onclick="limpiarFiltrosVisuales()">🧹 Limpiar Filtros</button>
           </div>
         </div>
 
@@ -342,6 +351,7 @@
     let userRankings = {};
     let currentPage = 1;
     const itemsPerPage = 10;
+    let filtroAlertaActivo = null; // 'nuevos' | 'avances' | null
 
     let lastUserViewTime = localStorage.getItem('last_user_view_time') || new Date(0).toISOString().split('T')[0];
 
@@ -400,7 +410,9 @@
 
       if (currentUser.role === 'admin') {
         tabsBar.innerHTML = `
-          <button id="btn-tab-tickets" class="active" onclick="switchTab('tickets')">🛠️ Cargar Mantis</button>
+          <button id="btn-tab-tickets" class="active" onclick="restaurarListaCompleta('tickets')">
+            📊 Solicitudes Activas en Mantis
+          </button>
           <button id="btn-tab-admin-solicitudes" onclick="switchTab('admin-solicitudes')">
             📥 Solicitudes de Usuarios
             <span id="alert-counter" class="badge-alert" style="display:none;" onclick="irASolicitudesUsuario(event)">0 NUEVAS</span>
@@ -409,7 +421,7 @@
         document.getElementById('title-tickets').innerText = '👑 Panel Administrador - Actualizar Mantis';
       } else {
         tabsBar.innerHTML = `
-          <button id="btn-tab-tickets" class="active" onclick="switchTab('tickets')">
+          <button id="btn-tab-tickets" class="active" onclick="restaurarListaCompleta('tickets')">
             📊 Solicitudes Activas en Mantis
             <span id="user-alert-counter-nuevos" class="badge-alert" style="display:none;" onclick="filtrarAlerta('nuevos', event)"></span>
             <span id="user-alert-counter-avances" class="badge-alert-blue" style="display:none;" onclick="filtrarAlerta('avances', event)"></span>
@@ -431,11 +443,14 @@
     function filtrarAlerta(tipo, e) {
       if(e) e.stopPropagation();
       switchTab('tickets');
-      const selectEspecial = document.getElementById('filter-especial');
-      if (selectEspecial) {
-        selectEspecial.value = tipo;
-        renderTablaPaginada();
-      }
+      filtroAlertaActivo = tipo;
+      renderTablaPaginada();
+    }
+
+    function restaurarListaCompleta(tab) {
+      filtroAlertaActivo = null;
+      switchTab(tab);
+      renderTablaPaginada();
     }
 
     function switchTab(tab) {
@@ -478,6 +493,16 @@
       return str;
     }
 
+    function limpiarFiltrosVisuales() {
+      document.getElementById('search-id').value = '';
+      document.getElementById('filter-estado').value = 'todos';
+      document.getElementById('filter-prioridad').value = 'todas';
+      document.getElementById('sort-order').value = 'inteligente';
+      filtroAlertaActivo = null;
+      currentPage = 1;
+      renderTablaPaginada();
+    }
+
     function cargarDatosLocales() {
       misSolicitudesPendientes = rawTodasSolicitudes.filter(s => !s.procesada);
 
@@ -485,8 +510,10 @@
         const estados = [...new Set(activeTickets.map(t => t.estado))];
         const selectEstado = document.getElementById('filter-estado');
         if(selectEstado) {
+          let valPrevia = selectEstado.value;
           selectEstado.innerHTML = '<option value="todos">Todos los Estados</option>';
           estados.forEach(e => { selectEstado.innerHTML += `<option value="${e}">${e}</option>`; });
+          if(estados.includes(valPrevia)) selectEstado.value = valPrevia;
         }
 
         let nuevosCount = 0;
@@ -619,7 +646,6 @@
 
       const filterEst = document.getElementById('filter-estado').value;
       const filterPrio = document.getElementById('filter-prioridad').value;
-      const filterEsp = document.getElementById('filter-especial') ? document.getElementById('filter-especial').value : 'todos';
       const searchId = document.getElementById('search-id').value.trim().toLowerCase();
       const sortType = document.getElementById('sort-order').value;
 
@@ -628,27 +654,34 @@
         let matchEst = (filterEst === 'todos') || (t.estado === filterEst);
         let matchPrio = (filterPrio === 'todas') || (t.prioridadUsuario === filterPrio);
         
-        let matchEsp = true;
-        if(filterEsp === 'nuevos') matchEsp = t.esNuevo;
-        if(filterEsp === 'avances') matchEsp = t.esActualizado;
+        let matchAlerta = true;
+        if (filtroAlertaActivo === 'nuevos') matchAlerta = t.esNuevo;
+        if (filtroAlertaActivo === 'avances') matchAlerta = t.esActualizado;
 
-        return matchSearch && matchEst && matchPrio && matchEsp;
+        return matchSearch && matchEst && matchPrio && matchAlerta;
       });
 
       let displayList = [...filtered];
       displayList.sort((a, b) => {
         if (sortType === 'inteligente') {
-          // ORDENA PRIMERO: NUEVOS Y AVANCES ARRIBA
+          // PRIMERO NUEVOS Y AVANCES
           let pesoA = (a.esNuevo || a.esActualizado) ? 1 : 2;
           let pesoB = (b.esNuevo || b.esActualizado) ? 1 : 2;
           if (pesoA !== pesoB) return pesoA - pesoB;
 
-          // Luego ordenamos por Prioridad
           const pesoPrio = { "Alta": 1, "Media": 2, "Baja": 3, "Sin asignar": 4 };
           let pA = pesoPrio[a.prioridadUsuario] || 5;
           let pB = pesoPrio[b.prioridadUsuario] || 5;
           if (pA !== pB) return pA - pB;
           return a.id.localeCompare(b.id);
+        } else if (sortType === 'fecha_asc') {
+          let fA = formatearFechaAISO(a.fechaEnvio);
+          let fB = formatearFechaAISO(b.fechaEnvio);
+          return fA.localeCompare(fB);
+        } else if (sortType === 'fecha_desc') {
+          let fA = formatearFechaAISO(a.fechaEnvio);
+          let fB = formatearFechaAISO(b.fechaEnvio);
+          return fB.localeCompare(fA);
         } else if (sortType === 'prioridad') {
           const peso = { "Alta": 1, "Media": 2, "Baja": 3, "Sin asignar": 4 };
           let pA = peso[a.prioridadUsuario] || 5;
