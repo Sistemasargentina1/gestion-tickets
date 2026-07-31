@@ -212,7 +212,6 @@
               <option value="fecha_desc">📅 Fecha de Envío (Más Nuevo a Más Viejo)</option>
               <option value="id">🆔 ID del Ticket</option>
               <option value="prioridad">🔴 Prioridad (Alta / Media / Baja)</option>
-             
             </select>
           </div>
           <div>
@@ -531,7 +530,8 @@
           t.prioridadUsuario = (pVal === '' || pVal === '-') ? 'Sin asignar' : pVal;
           t.rankingAlta = userRankings[t.id] || t.rankingSheet || 'Sin asignar';
           
-          t.esNuevo = (t.prioridadUsuario === 'Sin asignar');
+          // ES NUEVO SI NO TIENE PRIORIDAD O SI ES ALTA PERO AÚN NO SE LE ASIGNÓ EL RANKING #
+          t.esNuevo = (t.prioridadUsuario === 'Sin asignar') || (t.prioridadUsuario === 'Alta' && t.rankingAlta === 'Sin asignar');
 
           let fechaActIso = formatearFechaAISO(t.actualizada);
           t.esActualizado = !t.esNuevo && (fechaActIso >= userViewDay);
@@ -561,7 +561,7 @@
       return ocupados;
     }
 
-    // CAMBIAR PRIORIDAD MANTIENE EL TICKET ARRIBA HASTA QUE SE COMPLETE EL RANKING
+    // CAMBIAR PRIORIDAD MANTIENE EL TICKET EN PANTALLA HASTA QUE SE ELIJA EL RANKING
     function cambiarPrioridad(ticketId, nuevaPrioridad) {
       userPriorities[ticketId] = nuevaPrioridad;
 
@@ -570,7 +570,6 @@
         t.prioridadUsuario = nuevaPrioridad;
 
         if (nuevaPrioridad !== 'Alta') {
-          t.esNuevo = false;
           t.rankingAlta = 'Sin asignar';
           delete userRankings[ticketId];
           guardarEnServidorUniversal('save_priorities', { prioridades: userPriorities, rankings: userRankings });
@@ -578,7 +577,8 @@
         } else {
           t.rankingAlta = 'Sin asignar';
           delete userRankings[ticketId];
-          renderTablaPaginada(); // Dibuja el selector de ranking sin mover el ticket
+          // SIMPLEMENTE DIBUJA EL SELECTOR DE RANKING SIN REORDENAR LA LISTA NI MOVER EL TICKET
+          renderTablaPaginada();
         }
       }
     }
@@ -588,7 +588,6 @@
       if (t) {
         t.rankingAlta = nuevoRankTarget.toString();
         userRankings[ticketId] = nuevoRankTarget.toString();
-        t.esNuevo = false; // Recién aquí finaliza la asignación
       }
       cargarDatosLocales();
       guardarEnServidorUniversal('save_priorities', { prioridades: userPriorities, rankings: userRankings });
@@ -672,12 +671,8 @@
       let displayList = [...filtered];
       displayList.sort((a, b) => {
         if (sortType === 'inteligente') {
-          // SE CONSIDERAN 'PENDIENTES/URGENTES' SI SON NUEVOS, CON AVANCES, O ALTAS SIN RANKING DEFINIDO
-          let aIncompleto = a.esNuevo || a.esActualizado || (a.prioridadUsuario === 'Alta' && a.rankingAlta === 'Sin asignar');
-          let bIncompleto = b.esNuevo || b.esActualizado || (b.prioridadUsuario === 'Alta' && b.rankingAlta === 'Sin asignar');
-
-          let pesoA = aIncompleto ? 1 : 2;
-          let pesoB = bIncompleto ? 1 : 2;
+          let pesoA = (a.esNuevo || a.esActualizado) ? 1 : 2;
+          let pesoB = (b.esNuevo || b.esActualizado) ? 1 : 2;
           if (pesoA !== pesoB) return pesoA - pesoB;
 
           const pesoPrio = { "Alta": 1, "Media": 2, "Baja": 3, "Sin asignar": 4 };
