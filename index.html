@@ -60,7 +60,6 @@
     .btn-submit { background: var(--primary); color: white; border: none; padding: 0.75rem 1.25rem; border-radius: 0.5rem; font-weight: bold; font-size: 0.9rem; cursor: pointer; width: 100%; }
     
     /* BOTONES ACCION ADMIN */
-    .btn-reset { background: var(--danger); color: white; border: none; padding: 0.5rem 0.8rem; border-radius: 0.5rem; cursor: pointer; font-weight: bold; font-size: 0.8rem; }
     .btn-export { background: #0284c7; color: white; border: none; padding: 0.5rem 0.8rem; border-radius: 0.5rem; cursor: pointer; font-weight: bold; font-size: 0.8rem; }
     .btn-sync { background: #7c3aed; color: white; border: none; padding: 0.5rem 0.8rem; border-radius: 0.5rem; cursor: pointer; font-weight: bold; font-size: 0.8rem; }
 
@@ -109,7 +108,18 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    .sync-status { font-size: 0.75rem; color: var(--muted); margin-top: 0.3rem; font-weight: 500; }
+    /* ESTILO DESTACADO PARA MENSAJE DE SINCRONIZANDO */
+    .sync-status { 
+      font-size: 0.95rem; 
+      color: var(--primary); 
+      margin-top: 0.4rem; 
+      margin-bottom: 0.4rem; 
+      font-weight: 700; 
+      display: inline-block;
+      padding: 0.3rem 0.6rem;
+      border-radius: 0.375rem;
+      background: #eff6ff;
+    }
   </style>
 </head>
 <body>
@@ -153,12 +163,11 @@
           <h2 id="title-tickets">📊 Solicitudes Activas en Mantis</h2>
           <div id="admin-actions-bar" style="display:none; gap:0.4rem;">
             <button class="btn-export" onclick="descargarCSVTablaGeneral()">📥 Exportar CSV con Prioridades</button>
-            <button class="btn-sync" onclick="sincronizarServidorUniversal(true)">🔄 Sincronizar Google Sheets</button>
-            <button class="btn-reset" onclick="limpiarCacheTotal()">💥 Reset Total</button>
+            <button class="btn-sync" onclick="sincronizarServidorUniversal(true)">🔄 Sincronizar</button>
           </div>
         </div>
         
-        <div id="sync-status" class="sync-status"></div>
+        <div id="sync-status" class="sync-status">⏳ SINCRONIZANDO...</div>
 
         <div class="filters-bar" style="margin-top: 0.5rem;">
           <div>
@@ -321,7 +330,6 @@
     let userRankings = {};
     let currentPage = 1;
     const itemsPerPage = 10;
-    let isResetMode = false;
 
     let lastUserViewTime = localStorage.getItem('last_user_view_time') || new Date(0).toISOString().split('T')[0];
 
@@ -365,9 +373,7 @@
 
       if (window._syncIntervalId) clearInterval(window._syncIntervalId);
       window._syncIntervalId = setInterval(() => {
-        if(!isResetMode) {
-          sincronizarServidorUniversal(false);
-        }
+        sincronizarServidorUniversal(false);
       }, SYNC_INTERVAL);
     }
 
@@ -426,12 +432,10 @@
       localStorage.setItem('last_user_view_time', hoy);
     }
 
-    // NORMALIZADOR INTELIGENTE DE FECHAS (Saca 'T', 'Z' y horas raras para dejar YYYY-MM-DD siempre limpia)
     function formatearFechaAISO(dateStr) {
       if (!dateStr || dateStr === '-') return '1970-01-01';
       let str = dateStr.toString().trim();
       
-      // Si viene con formato '2026-07-07T03:00:00.000Z'
       if (str.includes('T')) {
         str = str.split('T')[0];
       }
@@ -449,7 +453,7 @@
     function cargarDatosLocales() {
       misSolicitudesPendientes = rawTodasSolicitudes.filter(s => !s.procesada);
 
-      if (activeTickets && activeTickets.length > 0 && !isResetMode) {
+      if (activeTickets && activeTickets.length > 0) {
         const estados = [...new Set(activeTickets.map(t => t.estado))];
         const selectEstado = document.getElementById('filter-estado');
         if(selectEstado) {
@@ -462,9 +466,12 @@
         let userViewDay = lastUserViewTime;
 
         activeTickets.forEach(t => {
-          t.prioridadUsuario = userPriorities[t.id] || 'Sin asignar';
-          t.rankingAlta = userRankings[t.id] || 'Sin asignar';
-          t.esNuevo = !userPriorities[t.id];
+          // Prioridad tomada de la sincronización general
+          t.prioridadUsuario = userPriorities[t.id] || t.prioridadSheet || 'Sin asignar';
+          t.rankingAlta = userRankings[t.id] || t.rankingSheet || 'Sin asignar';
+          
+          let pVal = t.prioridadUsuario.trim();
+          t.esNuevo = (!pVal || pVal === 'Sin asignar' || pVal === '-');
 
           let fechaActIso = formatearFechaAISO(t.actualizada);
           t.esActualizado = !t.esNuevo && (fechaActIso >= userViewDay);
@@ -571,8 +578,8 @@
       const tbody = document.getElementById('tabla-mantis-body');
       tbody.innerHTML = '';
 
-      if(isResetMode || activeTickets.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 1.5rem; color: var(--muted);">Pantalla reseteada / Sin tickets cargados. Haz clic en "Sincronizar Google Sheets".</td></tr>';
+      if(activeTickets.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 1.5rem; color: var(--muted);">Cargando solicitudes...</td></tr>';
         document.getElementById('page-info').innerText = "Mostrando 0 de 0";
         document.getElementById('pagination-controls').innerHTML = '';
         return;
@@ -794,9 +801,8 @@
     }
 
     function sincronizarServidorUniversal(mostrarAlerta = true) {
-      isResetMode = false;
       const statusEl = document.getElementById('sync-status');
-      if (statusEl) statusEl.innerText = '⏳ Sincronizando con Google Sheets...';
+      if (statusEl) statusEl.innerText = '⏳ SINCRONIZANDO...';
 
       window._mostrarAlertaGS = mostrarAlerta;
 
@@ -807,8 +813,8 @@
       script.id = 'gs-jsonp-script';
       script.src = `${APPS_SCRIPT_URL}?callback=procesarRespuestaGoogleSheets&t=${Date.now()}`;
       script.onerror = function() {
-        if (statusEl) statusEl.innerText = '⚠️ Error al conectar con Servidor Universal.';
-        if (window._mostrarAlertaGS) alert('⚠️ No se pudo conectar al servidor universal.');
+        if (statusEl) statusEl.innerText = '⚠️ ERROR DE CONEXIÓN';
+        if (window._mostrarAlertaGS) alert('⚠️ No se pudo conectar al servidor.');
       };
       document.body.appendChild(script);
     }
@@ -827,12 +833,12 @@
         procesarFilas(jsonResponse.tabla, { silencioso: true });
 
         const ahora = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        if (statusEl) statusEl.innerText = `✅ Sincronizado con Google Sheets a las ${ahora} (${activeTickets.length} tickets activos)`;
-        if (window._mostrarAlertaGS) alert(`✅ Conectado a Google Sheets. ${activeTickets.length} tickets cargados.`);
+        if (statusEl) statusEl.innerText = `✅ ACTUALIZADO (${ahora})`;
+        if (window._mostrarAlertaGS) alert(`✅ Conectado. ${activeTickets.length} tickets cargados.`);
 
       } catch (err) {
         console.error('Error procesando respuesta universal:', err);
-        if (statusEl) statusEl.innerText = '⚠️ Error al interpretar la respuesta del Servidor.';
+        if (statusEl) statusEl.innerText = '⚠️ ERROR DE FORMATO';
       }
     }
 
@@ -856,6 +862,10 @@
           let resumenVal = row[6] ? row[6].toString().trim() : '-';
           let estadoVal = row[7] ? row[7].toString().trim() : '-';
           let descVal = row[8] ? row[8].toString().trim() : '-';
+          
+          // Lectura directa desde el Sheet si existieran columnas K (prioridad) y L (ranking)
+          let prioSheetVal = row[10] ? row[10].toString().trim() : '';
+          let rankSheetVal = row[11] ? row[11].toString().trim() : '';
 
           let stLower = estadoVal.toLowerCase();
           if (stLower === 'cerrado' || stLower === 'resuelto') continue;
@@ -863,7 +873,8 @@
           let idFormateado = idLimpio.padStart(7, '0');
           ticketsMap.set(idFormateado, {
             id: idFormateado, link: linkVal, informador: informadorVal, asignada: asignadaVal,
-            fechaEnvio: fechaEnvioVal, actualizada: actualizadaVal, resumen: resumenVal, estado: estadoVal, descripcion: descVal
+            fechaEnvio: fechaEnvioVal, actualizada: actualizadaVal, resumen: resumenVal, estado: estadoVal, descripcion: descVal,
+            prioridadSheet: prioSheetVal, rankingSheet: rankSheetVal
           });
         }
       }
@@ -880,23 +891,6 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       }).catch(err => console.error("Error guardando en el servidor universal:", err));
-    }
-
-    // EL RESET DEJA LA PANTALLA TOTALMENTE LIMPIA Y BORRA MEMORIA
-    function limpiarCacheTotal() {
-      if (confirm('⚠️ ¿Deseas RESETEAR la pantalla por completo?\nEsto BORRARÁ las prioridades guardadas y vaciará la tabla (NO borra tu planilla Google Sheets).')) {
-        isResetMode = true;
-        userPriorities = {};
-        userRankings = {};
-        activeTickets = [];
-        
-        cargarDatosLocales();
-        guardarEnServidorUniversal('reset_all', {});
-        
-        const statusEl = document.getElementById('sync-status');
-        if (statusEl) statusEl.innerText = '💥 Pantalla vacía. Presiona "Sincronizar Google Sheets" para volver a cargar la información.';
-        alert('✅ Pantalla limpia por completo.');
-      }
     }
 
     function renderMisSolicitudes() {
