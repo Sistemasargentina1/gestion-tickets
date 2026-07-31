@@ -153,7 +153,7 @@
           <h2 id="title-tickets">📊 Solicitudes Activas en Mantis</h2>
           <div id="admin-actions-bar" style="display:none; gap:0.4rem;">
             <button class="btn-sync" onclick="cargarDesdeGoogleSheets(true)">🔄 Sincronizar Google Sheets</button>
-            <button class="btn-reset" onclick="limpiarCacheTotal()">💥 Reset Pantalla General</button>
+            <button class="btn-reset" onclick="limpiarCacheTotal()">💥 Reset Total</button>
           </div>
         </div>
         
@@ -863,15 +863,22 @@
       if (!opciones.silencioso) alert(`✅ ¡Cargado con éxito! Se importaron ${activeTickets.length} tickets activos.`);
     }
 
+    // AHORA LIMPIA ABSOLUTAMENTE TODO (Tickets, Prioridades y Rankings)
     function limpiarCacheTotal() {
-      if (confirm('⚠️ ¿Deseas hacer un Reset Pantalla General?\nEsto borrará la vista de tickets para TODOS los usuarios (NO borra tu planilla de Google Sheets).')) {
+      if (confirm('⚠️ ¿Deseas hacer un RESET TOTAL?\nEsto BORRARÁ de la pantalla los tickets cargados y TODAS las prioridades/rankings definidos para Admin y Usuario (NO borra tu planilla de Google Sheets).')) {
         localStorage.removeItem('mantis_tickets_data');
+        localStorage.removeItem('mantis_user_priorities');
+        localStorage.removeItem('mantis_user_rankings');
+        
         activeTickets = [];
+        userPriorities = {};
+        userRankings = {};
+        
         cargarDatosLocales();
         
         const statusEl = document.getElementById('sync-status');
-        if (statusEl) statusEl.innerText = '🧹 Memoria general vaciada. Presiona "Sincronizar Google Sheets" para volver a cargar los datos.';
-        alert('✅ Pantalla reseteada.');
+        if (statusEl) statusEl.innerText = '💥 Se eliminó la memoria de tickets y prioridades. Presiona "Sincronizar Google Sheets" para comenzar de cero.';
+        alert('✅ Reset completo aplicado. Todo quedó limpio desde cero.');
       }
     }
 
