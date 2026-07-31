@@ -108,7 +108,6 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    /* ESTILO DESTACADO PARA MENSAJE DE SINCRONIZANDO */
     .sync-status { 
       font-size: 0.95rem; 
       color: var(--primary); 
@@ -466,12 +465,11 @@
         let userViewDay = lastUserViewTime;
 
         activeTickets.forEach(t => {
-          // Prioridad tomada de la sincronización general
-          t.prioridadUsuario = userPriorities[t.id] || t.prioridadSheet || 'Sin asignar';
+          let pVal = userPriorities[t.id] || t.prioridadSheet || 'Sin asignar';
+          t.prioridadUsuario = (pVal === '' || pVal === '-') ? 'Sin asignar' : pVal;
           t.rankingAlta = userRankings[t.id] || t.rankingSheet || 'Sin asignar';
           
-          let pVal = t.prioridadUsuario.trim();
-          t.esNuevo = (!pVal || pVal === 'Sin asignar' || pVal === '-');
+          t.esNuevo = (t.prioridadUsuario === 'Sin asignar');
 
           let fechaActIso = formatearFechaAISO(t.actualizada);
           t.esActualizado = !t.esNuevo && (fechaActIso >= userViewDay);
@@ -863,7 +861,6 @@
           let estadoVal = row[7] ? row[7].toString().trim() : '-';
           let descVal = row[8] ? row[8].toString().trim() : '-';
           
-          // Lectura directa desde el Sheet si existieran columnas K (prioridad) y L (ranking)
           let prioSheetVal = row[10] ? row[10].toString().trim() : '';
           let rankSheetVal = row[11] ? row[11].toString().trim() : '';
 
