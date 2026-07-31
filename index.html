@@ -39,7 +39,6 @@
     .nav-tabs button { background: white; border: 1px solid var(--border); padding: 0.6rem 1.1rem; border-radius: 0.6rem; cursor: pointer; font-weight: bold; position: relative; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; }
     .nav-tabs button.active { background: var(--primary); color: white; border-color: var(--primary); }
 
-    /* ALERTAS ESTILO PÍLDORA DESTACADA */
     .badge-alert {
       background: #ef4444; color: white; border-radius: 999px;
       padding: 0.2rem 0.6rem; font-size: 0.75rem; font-weight: 800;
@@ -52,7 +51,6 @@
       margin-left: 0.3rem; animation: pulse 1.5s infinite; cursor: pointer;
       box-shadow: 0 2px 5px rgba(2, 132, 199, 0.4); border: 1px solid rgba(255,255,255,0.3);
     }
-    .badge-alert:hover, .badge-alert-blue:hover { transform: scale(1.05); }
     @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.06); } 100% { transform: scale(1); } }
 
     .card { background: var(--card); border-radius: 0.75rem; padding: 1.25rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid var(--border); margin-bottom: 1rem; }
@@ -75,7 +73,6 @@
     textarea { resize: vertical; min-height: 80px; }
     .btn-submit { background: var(--primary); color: white; border: none; padding: 0.75rem 1.25rem; border-radius: 0.5rem; font-weight: bold; font-size: 0.9rem; cursor: pointer; width: 100%; }
     
-    /* BOTONES ACCION ADMIN */
     .btn-export { background: #0284c7; color: white; border: none; padding: 0.5rem 0.8rem; border-radius: 0.5rem; cursor: pointer; font-weight: bold; font-size: 0.8rem; }
     .btn-sync { background: #7c3aed; color: white; border: none; padding: 0.5rem 0.8rem; border-radius: 0.5rem; cursor: pointer; font-weight: bold; font-size: 0.8rem; }
 
@@ -187,17 +184,17 @@
         <div class="filters-bar" style="margin-top: 0.5rem;">
           <div>
             <label>🔍 Buscar por ID:</label>
-            <input type="text" id="search-id" placeholder="Ej. 57310..." oninput="renderTablaPaginada()" style="width: 110px;">
+            <input type="text" id="search-id" placeholder="Ej. 57310..." oninput="onFiltroCambiado()" style="width: 110px;">
           </div>
           <div>
             <label>Filtrar por Estado:</label>
-            <select id="filter-estado" onchange="renderTablaPaginada()">
+            <select id="filter-estado" onchange="onFiltroCambiado()">
               <option value="todos">Todos los Estados</option>
             </select>
           </div>
           <div>
             <label>Filtrar por Prioridad:</label>
-            <select id="filter-prioridad" onchange="renderTablaPaginada()">
+            <select id="filter-prioridad" onchange="onFiltroCambiado()">
               <option value="todas">Todas las Prioridades</option>
               <option value="Sin asignar">⚠️ Sin asignar (Nuevos)</option>
               <option value="Alta">🔴 Alta</option>
@@ -207,12 +204,12 @@
           </div>
           <div>
             <label>↕️ Ordenar Lista Por:</label>
-            <select id="sort-order" onchange="renderTablaPaginada()">
+            <select id="sort-order" onchange="onFiltroCambiado()">
               <option value="inteligente">🚨 Nuevos y Avances Primero (Recomendado)</option>
               <option value="fecha_asc">📅 Fecha de Envío (Más Viejo a Más Nuevo)</option>
               <option value="fecha_desc">📅 Fecha de Envío (Más Nuevo a Más Viejo)</option>
               <option value="id">🆔 ID del Ticket</option>
-              <option value="prioridad">🔴 Prioridad (Alta / Media / Baja)</option>            
+              <option value="prioridad">🔴 Prioridad (Alta / Media / Baja)</option           
             </select>
           </div>
           <div>
@@ -443,12 +440,19 @@
       if(e) e.stopPropagation();
       switchTab('tickets');
       filtroAlertaActivo = tipo;
+      currentPage = 1;
       renderTablaPaginada();
     }
 
     function restaurarListaCompleta(tab) {
       filtroAlertaActivo = null;
+      currentPage = 1;
       switchTab(tab);
+      renderTablaPaginada();
+    }
+
+    function onFiltroCambiado() {
+      currentPage = 1; // RESET DE PAGINA PARA EVITAR BUG DE TABLA EN BLANCO
       renderTablaPaginada();
     }
 
@@ -554,6 +558,7 @@
       return ocupados;
     }
 
+    // AL ELEGIR 'ALTA', MANTIENE EL TICKET EN PANTALLA HASTA QUE SE ELIJA EL NUMERO DE URGENCIA
     function cambiarPrioridad(ticketId, nuevaPrioridad) {
       userPriorities[ticketId] = nuevaPrioridad;
 
@@ -565,14 +570,14 @@
         if (nuevaPrioridad !== 'Alta') {
           t.rankingAlta = 'Sin asignar';
           delete userRankings[ticketId];
+          guardarEnServidorUniversal('save_priorities', { prioridades: userPriorities, rankings: userRankings });
+          cargarDatosLocales();
         } else {
           t.rankingAlta = 'Sin asignar';
           delete userRankings[ticketId];
+          renderTablaPaginada(); // Muestra el desplegable en rojo sin reordenar de golpe
         }
       }
-
-      cargarDatosLocales();
-      guardarEnServidorUniversal('save_priorities', { prioridades: userPriorities, rankings: userRankings });
     }
 
     function cambiarRanking(ticketId, nuevoRankTarget) {
@@ -663,7 +668,6 @@
       let displayList = [...filtered];
       displayList.sort((a, b) => {
         if (sortType === 'inteligente') {
-          // PRIMERO NUEVOS Y AVANCES
           let pesoA = (a.esNuevo || a.esActualizado) ? 1 : 2;
           let pesoB = (b.esNuevo || b.esActualizado) ? 1 : 2;
           if (pesoA !== pesoB) return pesoA - pesoB;
@@ -698,6 +702,13 @@
           return a.id.localeCompare(b.id);
         }
       });
+
+      if (displayList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 1.5rem; color: var(--muted);">No se encontraron solicitudes con los filtros aplicados.</td></tr>';
+        document.getElementById('page-info').innerText = "Mostrando 0 de 0";
+        document.getElementById('pagination-controls').innerHTML = '';
+        return;
+      }
 
       const totalPages = Math.ceil(displayList.length / itemsPerPage);
       if (currentPage > totalPages) currentPage = totalPages;
